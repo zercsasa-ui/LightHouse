@@ -559,7 +559,7 @@ html[data-theme="dark"] .loginButton:hover .buttonIcon {
   .sidebarNav {
     display: flex;
     flex-direction: row;
-    justify-content: flex-start;
+    justify-content: center;
     align-items: center;
     gap: 4px;
     padding: 0 8px;
