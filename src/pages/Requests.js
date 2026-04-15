@@ -83,6 +83,34 @@ const Requests = () => {
     fetchData();
   }, [user]);
 
+  // Подсветка заявки при переходе по ссылке с хэшем
+  useEffect(() => {
+    const highlightTargetRequest = () => {
+      if (window.location.hash.startsWith('#request-')) {
+        const requestId = window.location.hash.replace('#request-', '');
+        
+        const tryFindElement = () => {
+          const targetElement = document.querySelector(`[data-request-id="${requestId}"]`);
+          if (targetElement) {
+            // Прокручиваем до элемента
+            targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        };
+
+        // Пробуем найти элемент несколько раз с задержкой пока загрузятся заявки
+        setTimeout(tryFindElement, 200);
+        setTimeout(tryFindElement, 500);
+        setTimeout(tryFindElement, 800);
+      }
+    };
+
+    highlightTargetRequest();
+    
+    // Слушаем изменения хэша
+    window.addEventListener('hashchange', highlightTargetRequest);
+    return () => window.removeEventListener('hashchange', highlightTargetRequest);
+  }, [requests]);
+
   useEffect(() => {
     if (product) {
       setMessage(`Интересует товар: ${product.name}\nЦена: ${product.price} ₽`);
@@ -277,7 +305,7 @@ const Requests = () => {
           ) : (
             <div className={styles.requests}>
               {filteredRequests.map(req => (
-                <div key={req.id} className={styles.requestCard}>
+                <div key={req.id} data-request-id={req.id} className={styles.requestCard}>
                   <div className={styles.requestHeader}>
                     <span className={styles.requestDate}>
                       {new Date(req.created_at).toLocaleDateString('ru-RU')}

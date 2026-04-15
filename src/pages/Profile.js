@@ -93,6 +93,38 @@ const Profile = () => {
     loadUserRequests();
   }, [user]);
 
+  // Подсветка заявки при переходе по ссылке с хэшем
+  useEffect(() => {
+    const highlightTargetRequest = () => {
+      if (window.location.hash.startsWith('#request-')) {
+        const requestId = window.location.hash.replace('#request-', '');
+        
+        // Небольшая задержка чтобы страница успела отрендериться
+        setTimeout(() => {
+          const targetElement = document.querySelector(`[data-request-id="${requestId}"]`);
+          if (targetElement) {
+            // Прокручиваем до элемента
+            targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Добавляем класс подсветки
+            targetElement.classList.add('highlight-request');
+            
+            // Убираем подсветку через 3 секунды
+            setTimeout(() => {
+              targetElement.classList.remove('highlight-request');
+            }, 3000);
+          }
+        }, 300);
+      }
+    };
+
+    highlightTargetRequest();
+    
+    // Слушаем изменения хэша
+    window.addEventListener('hashchange', highlightTargetRequest);
+    return () => window.removeEventListener('hashchange', highlightTargetRequest);
+  }, [userRequests]);
+
   // Отметить уведомление как прочитанное
   const markAsViewed = async (requestId) => {
     try {
@@ -101,17 +133,17 @@ const Profile = () => {
       if (!readIds.includes(requestId)) {
         readIds.push(requestId);
         localStorage.setItem('read_notifications', JSON.stringify(readIds));
+        
+        setUserRequests(prev => prev.map(req => 
+          req.id === requestId ? { ...req, notification_viewed: true } : req
+        ));
+        
+        // Обновляем счётчик только если уведомление было непрочитанным
+        setUnreadCount(prev => Math.max(0, prev - 1));
       }
       
-      setUserRequests(prev => prev.map(req => 
-        req.id === requestId ? { ...req, notification_viewed: true } : req
-      ));
-      
-      // Обновляем счётчик
-      setUnreadCount(prev => Math.max(0, prev - 1));
-      
-      // Переход на страницу заявок
-      navigate('/admin');
+      // Переход к заявке работает ВСЕГДА, даже если уведомление уже прочитано
+      navigate(`/requests#request-${requestId}`);
     } catch (e) {
       console.error('Ошибка отметки прочитанного:', e);
     }
@@ -310,8 +342,8 @@ const Profile = () => {
                    <span className={styles.questionDate}>
                      {new Date(q.created_at).toLocaleDateString('ru-RU')}
                    </span>
-                   {q.is_answered && <span className={styles.answeredBadge}>✅ Отвечено</span>}
-                   {!q.is_published && <span className={styles.moderationBadge}>⏳ На модерации</span>}
+                   {q.is_answered && <span className={styles.answeredBadge}>Отвечено</span>}
+                   {!q.is_published && <span className={styles.moderationBadge}>На модерации</span>}
                  </div>
                  
                  <p className={styles.questionText}>{q.question}</p>
@@ -341,11 +373,13 @@ const Profile = () => {
          ) : (
            <div className={styles.notificationsList}>
              {userRequests.filter(r => r.admin_response).map(req => (
-               <div 
-                 key={req.id} 
-                 className={`${styles.notificationItem} ${!req.notification_viewed ? styles.unread : ''}`}
-                 onClick={() => !req.notification_viewed && markAsViewed(req.id)}
-               >
+                <div 
+                  key={req.id} 
+                  data-request-id={req.id}
+                  className={`${styles.notificationItem} ${!req.notification_viewed ? styles.unread : ''}`}
+                  onClick={() => markAsViewed(req.id)}
+                  style={{cursor: 'pointer'}}
+                >
                  <div className={styles.notificationHeader}>
                    <span className={styles.notificationIcon}><img src="/images/ico/icoDone.png" alt="" /></span>
                    <span className={styles.notificationDate}>
@@ -355,7 +389,7 @@ const Profile = () => {
                  </div>
                  
                  <p className={styles.notificationText}>
-                   ✅ Получен ответ на вашу заявку от {new Date(req.created_at).toLocaleDateString('ru-RU')}
+                   Получен ответ на вашу заявку от {new Date(req.created_at).toLocaleDateString('ru-RU')}
                  </p>
                  
                  <div className={styles.notificationAnswer}>

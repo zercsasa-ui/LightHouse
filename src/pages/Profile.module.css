@@ -73,6 +73,21 @@
   border-color: var(--border-color);
 }
 
+.highlight-request {
+  border: 2px solid #0d9488 !important;
+  background: rgba(13, 148, 136, 0.1) !important;
+  animation: highlightPulse 0.6s ease-in-out 3;
+}
+
+@keyframes highlightPulse {
+  0%, 100% {
+    box-shadow: 0 2px 8px var(--shadow-color);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(13, 148, 136, 0.2);
+  }
+}
+
 .notificationHeader {
   display: flex;
   align-items: center;
@@ -82,6 +97,12 @@
 
 .notificationIcon {
   font-size: 18px;
+}
+
+.notificationIcon img {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
 }
 
 .notificationDate {
