@@ -34,9 +34,45 @@ const Auth = () => {
     return emailRegex.test(email);
   };
 
-  // Валидация имени
+  // Валидация никнейма
   const validateName = (name) => {
-    return name.length >= 2 && name.length <= 30;
+    // Проверка длины
+    if (name.length < 2 || name.length > 30) {
+      return { valid: false, message: 'Никнейм должен быть от 2 до 30 символов' };
+    }
+
+    // Проверка на только пробелы
+    if (/^\s*$/.test(name)) {
+      return { valid: false, message: 'Никнейм не может состоять только из пробелов' };
+    }
+
+    // Запрет пробелов в начале и конце
+    if (/^\s|\s$/.test(name)) {
+      return { valid: false, message: 'Никнейм не может начинаться или заканчиваться пробелом' };
+    }
+
+    // Запрет нескольких пробелов подряд
+    if (/\s{2,}/.test(name)) {
+      return { valid: false, message: 'Никнейм не может содержать несколько пробелов подряд' };
+    }
+
+    // Разрешённые символы: кириллица, латиница, цифры, пробел, тире, нижнее подчёркивание
+    const allowedCharsRegex = /^[а-яА-ЯёЁa-zA-Z0-9\s\-_]+$/;
+    if (!allowedCharsRegex.test(name)) {
+      return { valid: false, message: 'Никнейм может содержать только буквы, цифры, пробелы, тире и нижнее подчёркивание' };
+    }
+
+    // Запрет никнейма состоящего только из цифр
+    if (/^\d+$/.test(name)) {
+      return { valid: false, message: 'Никнейм не может состоять только из цифр' };
+    }
+
+    // Запрет более 4 одинаковых символов подряд
+    if (/(.)\1{4,}/.test(name)) {
+      return { valid: false, message: 'Слишком много одинаковых символов подряд' };
+    }
+
+    return { valid: true };
   };
 
   // Валидация пароля
@@ -72,8 +108,9 @@ const Auth = () => {
         const sanitizedName = sanitizeInput(name);
         const sanitizedEmail = sanitizeInput(email);
 
-        if (!validateName(sanitizedName)) {
-          throw new Error('Имя должно быть от 2 до 30 символов');
+        const nameValidation = validateName(sanitizedName);
+        if (!nameValidation.valid) {
+          throw new Error(nameValidation.message);
         }
 
         if (!validateEmail(sanitizedEmail)) {

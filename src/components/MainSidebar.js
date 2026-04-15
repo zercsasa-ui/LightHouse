@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { preloadCatalog } from '../supabase';
+import { preloadCatalog, supabase } from '../supabase';
 import styles from './MainSidebar.module.css';
 import ConfirmModal from './ConfirmModal';
 
@@ -12,6 +12,33 @@ const MainSidebar = ({ isCollapsed, setIsCollapsed }) => {
   const isLoggedIn = !!user;
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Загрузка количества непрочитанных уведомлений
+  useEffect(() => {
+    const loadUnreadCount = async () => {
+      if (!user) return;
+
+      try {
+        const { data } = await supabase
+          .from('requests')
+          .select('*')
+          .eq('user_id', user.id);
+
+        const readIds = JSON.parse(localStorage.getItem('read_notifications') || '[]');
+        const unread = (data || []).filter(req => req.admin_response && !readIds.includes(req.id)).length;
+        setUnreadCount(unread);
+      } catch (e) {
+        console.error('Ошибка загрузки счётчика уведомлений:', e);
+      }
+    };
+
+    loadUnreadCount();
+
+    // Обновляем счётчик каждые 30 секунд
+    const interval = setInterval(loadUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   useEffect(() => {
     const spans = document.querySelectorAll(`.${styles.sidebarLink} span, .${styles.logoutButton} span, .${styles.loginButton} span`);
@@ -63,7 +90,7 @@ const MainSidebar = ({ isCollapsed, setIsCollapsed }) => {
       </button>
 
       <div className={styles.sidebarHeader}>
-        {!isCollapsed && <h2>Light Store</h2>}
+        {!isCollapsed && <h2>LightHouse</h2>}
         {isCollapsed && <img src="/images/ico/icoLogo.png" alt="Logo" className={styles.logoIcon} onClick={() => setIsCollapsed(false)} />}
         {userProfile ? (
           <div className={styles.userInfo}>
@@ -123,7 +150,10 @@ const MainSidebar = ({ isCollapsed, setIsCollapsed }) => {
                to="/profile"
                className={({ isActive }) => isActive ? `${styles.sidebarLink} ${styles.sidebarLinkActive}` : styles.sidebarLink}
              >
-                <img src="/images/ico/icoProfile.png" alt="" className={styles.linkIcon} />
+                <div className={styles.iconWrapper}>
+                  <img src="/images/ico/icoProfile.png" alt="" className={styles.linkIcon} />
+                  {unreadCount > 0 && <span className={styles.notificationBadge}>{unreadCount}</span>}
+                </div>
                 {!isCollapsed && <span>Профиль</span>}
              </NavLink>
            </li>

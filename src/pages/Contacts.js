@@ -45,6 +45,13 @@ const Contacts = () => {
                 <p>Пн-Пт: 9:00 - 18:00</p>
               </div>
             </div>
+            <div className={styles.contactItem}>
+              <img src="/images/ico/icoDone.png" alt="Услуги" className={styles.contactIcon} />
+              <div>
+                <strong>Наши услуги</strong>
+                <p>Вы можете заказать у нас электромонтажные работы, вызов мастера на дом, профессиональную консультацию, установку и подключение любых электроприборов. Работаем по всей области, гарантия до 3 лет.</p>
+              </div>
+            </div>
           </div>
 
           <div className={styles.formSection}>

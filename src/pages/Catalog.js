@@ -36,7 +36,7 @@ const Catalog = () => {
         try {
           const timeoutId = setTimeout(() => abortController.abort(), 10000);
 
-          //   Параллельные запросы - ускоряет загрузку в 2 раза
+          
           const [productsRes, categoriesRes] = await Promise.all([
             supabase.from('products').select('*, categories(name)').limit(200).order('created_at', { ascending: false }),
             supabase.from('categories').select('*').order('name')
@@ -73,17 +73,14 @@ const Catalog = () => {
 
     fetchData();
 
-    //   Отменяем запрос при размонтировании компонента / быстрой навигации
+  
     return () => abortController.abort();
   }, []);
-
   let filteredProducts = products;
-
   // Фильтр по категории
   if (selectedCategory) {
     filteredProducts = filteredProducts.filter(p => p.categories?.name === selectedCategory);
   }
-
   // Поиск по названию (только примененный запрос)
   if (appliedSearchQuery.trim()) {
     const query = appliedSearchQuery.toLowerCase();
@@ -92,26 +89,21 @@ const Catalog = () => {
       p.description?.toLowerCase().includes(query)
     );
   }
-
   // Фильтр по минимальной цене
   if (minPrice) {
     filteredProducts = filteredProducts.filter(p => p.price >= parseFloat(minPrice));
   }
-
   // Фильтр по максимальной цене
   if (maxPrice) {
     filteredProducts = filteredProducts.filter(p => p.price <= parseFloat(maxPrice));
   }
-
   // Фильтр по минимальной оценке
   if (minRating > 0) {
     filteredProducts = filteredProducts.filter(p => (p.rating || 0) >= minRating);
   }
-
   if (loading) {
     return <div className={styles.loading}>Загрузка...</div>;
   }
-
   return (
     <div className={styles.catalogContainer}>
       <h1 className={styles.title}>Каталог товаров</h1>

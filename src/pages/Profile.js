@@ -12,6 +12,8 @@ const Profile = () => {
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [userQuestions, setUserQuestions] = useState([]);
   const [questionsLoading, setQuestionsLoading] = useState(false);
+  const [userRequests, setUserRequests] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   
   // Доступные аватарки
   const avatars = ['😎', '👽', '🦊', '🐱'];
@@ -56,6 +58,64 @@ const Profile = () => {
 
     loadUserQuestions();
   }, [user]);
+
+  // Загрузка заявок пользователя и уведомлений
+  useEffect(() => {
+    const loadUserRequests = async () => {
+      if (!user) return;
+
+      try {
+      const { data } = await supabase
+        .from('requests')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+        // Получаем прочитанные из localStorage
+        const readIds = JSON.parse(localStorage.getItem('read_notifications') || '[]');
+        
+        // Подмешиваем статус прочитанности локально
+        const withReadStatus = (data || []).map(req => ({
+          ...req,
+          notification_viewed: readIds.includes(req.id)
+        }));
+
+        setUserRequests(withReadStatus);
+        
+        // Считаем непрочитанные ответы
+        const unread = withReadStatus.filter(req => req.admin_response && !req.notification_viewed).length || 0;
+        setUnreadCount(unread);
+      } catch (e) {
+        console.error('Ошибка загрузки заявок:', e);
+      }
+    };
+
+    loadUserRequests();
+  }, [user]);
+
+  // Отметить уведомление как прочитанное
+  const markAsViewed = async (requestId) => {
+    try {
+      // Сохраняем прочитанные уведомления в localStorage
+      const readIds = JSON.parse(localStorage.getItem('read_notifications') || '[]');
+      if (!readIds.includes(requestId)) {
+        readIds.push(requestId);
+        localStorage.setItem('read_notifications', JSON.stringify(readIds));
+      }
+      
+      setUserRequests(prev => prev.map(req => 
+        req.id === requestId ? { ...req, notification_viewed: true } : req
+      ));
+      
+      // Обновляем счётчик
+      setUnreadCount(prev => Math.max(0, prev - 1));
+      
+      // Переход на страницу заявок
+      navigate('/admin');
+    } catch (e) {
+      console.error('Ошибка отметки прочитанного:', e);
+    }
+  };
 
   useEffect(() => {
     const loadFavorites = async () => {
@@ -131,14 +191,15 @@ const Profile = () => {
       <h1 className={styles.title}>Профиль</h1>
 
       {user ? (
-          <div className={styles.userInfo}>
-          <div className={styles.avatar} onClick={() => setShowAvatarPicker(!showAvatarPicker)}>
-            {currentAvatar}
-          </div>
-           <div className={styles.userDetails}>
-             <h2 className={styles.userName}>{userProfile?.name || 'Пользователь'}</h2>
-             <p className={styles.userEmail}>{user.email}</p>
-             <p className={styles.date}>Зарегистрирован: {new Date(user.created_at).toLocaleDateString('ru-RU')}</p>
+        <div className={styles.userInfo}>
+        <div className={styles.avatar} onClick={() => setShowAvatarPicker(!showAvatarPicker)}>
+          {currentAvatar}
+          {unreadCount > 0 && <span className={styles.notificationBadge}>{unreadCount}</span>}
+        </div>
+         <div className={styles.userDetails}>
+           <h2 className={styles.userName}>{userProfile?.name || 'Пользователь'}</h2>
+           <p className={styles.userEmail}>{user.email}</p>
+           <p className={styles.date}>Зарегистрирован: {new Date(user.created_at).toLocaleDateString('ru-RU')}</p>
             
             {showAvatarHint && (
               <div className={styles.avatarHint}>
@@ -268,8 +329,46 @@ const Profile = () => {
          )}
        </div>
 
-     </div>
-   );
- };
+       {/* Секция уведомлений / ответы на заявки */}
+       <div className={styles.section}>
+         <h2>Уведомления {unreadCount > 0 && <span className={styles.unreadBadge}>Новых: {unreadCount}</span>}</h2>
+
+         {userRequests.filter(r => r.admin_response).length === 0 ? (
+           <div className={styles.emptyState}>
+             <p>У вас пока нет уведомлений</p>
+             <p className={styles.note}>Когда администратор ответит на вашу заявку - уведомление появится здесь</p>
+           </div>
+         ) : (
+           <div className={styles.notificationsList}>
+             {userRequests.filter(r => r.admin_response).map(req => (
+               <div 
+                 key={req.id} 
+                 className={`${styles.notificationItem} ${!req.notification_viewed ? styles.unread : ''}`}
+                 onClick={() => !req.notification_viewed && markAsViewed(req.id)}
+               >
+                 <div className={styles.notificationHeader}>
+                   <span className={styles.notificationIcon}><img src="/images/ico/icoDone.png" alt="" /></span>
+                   <span className={styles.notificationDate}>
+                     {new Date(req.created_at).toLocaleDateString('ru-RU')}
+                   </span>
+                   {!req.notification_viewed && <span className={styles.newBadge}>НОВОЕ</span>}
+                 </div>
+                 
+                 <p className={styles.notificationText}>
+                   ✅ Получен ответ на вашу заявку от {new Date(req.created_at).toLocaleDateString('ru-RU')}
+                 </p>
+                 
+                 <div className={styles.notificationAnswer}>
+                   <p>{req.admin_response}</p>
+                 </div>
+               </div>
+             ))}
+           </div>
+         )}
+       </div>
+
+      </div>
+    );
+  };
 
 export default Profile;
