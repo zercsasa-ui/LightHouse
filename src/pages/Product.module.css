@@ -26,15 +26,27 @@
   left: 10px;
 }
 
+.backBtnHidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .backBtn:hover {
   width: 304px;
 }
 
-.backBtn p {
-  width: 100%;
-  height: 140%;
-  transform: rotate(180deg);
-  color: transparent;
+.backBtnText {
+  position: absolute;
+  top: 90%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(180deg);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  pointer-events: none;
+  text-transform: uppercase;
 }
 
 
@@ -116,6 +128,7 @@
   line-height: 1.7;
   color: var(--text-secondary);
   margin: 0;
+  white-space: pre-wrap;
 }
 
 .productPriceBlock {
@@ -400,6 +413,10 @@
   color: var(--text-primary);
 }
 
+html[data-theme="dark"] .successModalContent {
+  border-color: #475569;
+}
+
 @keyframes slideInRight {
   from {
     opacity: 0;
@@ -497,13 +514,16 @@
   padding-top: 40px;
   border-top: 1px solid var(--border-color);
 }
-.relatedSection .imageContainer{
+
+.relatedSection .imageContainer {
   height: 260px;
   width: 100%;
 }
-.relatedSection .productImage{
-height: 100%;
+
+.relatedSection .productImage {
+  height: 100%;
 }
+
 .sectionTitle {
   font-size: 1.5rem;
   font-weight: 600;
@@ -513,8 +533,35 @@ height: 100%;
 
 .productsGrid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.showMoreRow {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.showMoreBtn {
+  padding: 12px 32px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1.5px solid var(--border-color);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.25s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.showMoreBtn:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--accent-color);
+  transform: translateY(-1px);
 }
 
 .productCard {
@@ -584,6 +631,12 @@ height: 100%;
 }
 
 /* Адаптив */
+@media (max-width: 990px) {
+  .backBtn {
+    left: 90px;
+  }
+}
+
 @media (max-width: 992px) {
   .productPage {
     grid-template-columns: 1fr;
@@ -655,6 +708,10 @@ html[data-theme="dark"] .backBtn {
   filter: invert(1) brightness(0.9);
 }
 
+html[data-theme="dark"] .backBtnText {
+  color: #0f172a;
+}
+
 html[data-theme="dark"] .requestBtn {
   color: #0f172a;
 }
@@ -717,9 +774,9 @@ html[data-theme="dark"] .copySuccess img {
   max-height: 0;
   overflow: hidden;
   opacity: 0;
-  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
-              opacity 0.25s ease,
-              margin-top 0.3s ease;
+  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.25s ease,
+    margin-top 0.3s ease;
   margin-top: 0;
 }
 
@@ -971,14 +1028,61 @@ html[data-theme="dark"] .copySuccess img {
   box-shadow: 0 0 0 3px rgba(var(--accent-color-rgb, 13, 148, 136), 0.2) !important;
 }
 
+/* ============== Параметры товара на странице товара ============== */
+.productParams {
+  margin: 16px 0;
+  padding: 14px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.productParamsTitle {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.productParamsList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.productParamRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.productParamLabel {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.productParamValue {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  font-weight: 600;
+  text-align: right;
+}
+
 @keyframes highlightPulse {
   0% {
     background: rgba(13, 148, 136, 0.15);
     border-color: #0d9488;
   }
+
   50% {
     background: rgba(13, 148, 136, 0.08);
   }
+
   100% {
     background: var(--bg-secondary);
     border-color: transparent;

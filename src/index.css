@@ -13,7 +13,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background: var(--bg-primary);
   color: var(--text-primary);
-    overflow-y: scroll;
+  overflow-y: scroll;
   overflow-x: hidden;
 }
 

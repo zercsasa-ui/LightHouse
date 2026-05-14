@@ -2,6 +2,7 @@
   padding: 50px;
   background-color: var(--bg-primary);
   transition: background-color 0.3s ease;
+  overflow-x: hidden;
 }
 
 .title {
@@ -651,8 +652,6 @@
     border-radius: 8px;
     width: 100%;
     box-sizing: border-box;
-    max-width: 90%;
-    margin: 0 auto;
   }
 
   .formTitle,
@@ -775,8 +774,9 @@
   .confirmedSection {
     padding: 16px;
     border-radius: 8px;
-    min-width: 90%;
-    margin: 0 auto;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .confirmedTitle {
@@ -836,6 +836,209 @@
   .emptySmall {
     padding: 30px 16px;
     font-size: 0.85rem;
+  }
+}
+
+/* Адаптив для 360px и меньше - экстремально компактный вид */
+@media (max-width: 360px) {
+  .requestsContainer {
+    padding: 8px;
+  }
+
+  .title {
+    font-size: 1.2rem;
+    margin-bottom: 12px;
+  }
+
+  .content {
+    gap: 12px;
+  }
+
+  .formSection,
+  .requestsList {
+    padding: 8px;
+    border-radius: 6px;
+  }
+
+  .formTitle,
+  .listTitle {
+    font-size: 1rem;
+    margin-bottom: 10px;
+  }
+
+  .filtersBar {
+    gap: 4px;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+  }
+
+  .searchInput {
+    flex: 1;
+    min-width: 80px;
+    padding: 4px 6px;
+    font-size: 10px;
+  }
+
+  .dateInput {
+    min-width: 70px;
+    padding: 4px 4px;
+    font-size: 10px;
+  }
+
+  .statusFilter {
+    min-width: 80px;
+    padding: 4px 4px;
+    font-size: 10px;
+  }
+
+  .clearFiltersBtn {
+    padding: 4px 6px;
+    font-size: 10px;
+  }
+
+  .requests {
+    gap: 8px;
+    max-height: 300px;
+    padding-right: 2px;
+  }
+
+  .requestCard {
+    padding: 8px;
+    border-radius: 6px;
+  }
+
+  .requestHeader {
+    margin-bottom: 6px;
+  }
+
+  .requestDate {
+    font-size: 0.75rem;
+  }
+
+  .status {
+    padding: 2px 6px;
+    font-size: 0.65rem;
+    border-radius: 8px;
+  }
+
+  .requestMessage {
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+  }
+
+  .expandBtn {
+    font-size: 0.75rem;
+    margin-bottom: 4px;
+  }
+
+  .requestPhone {
+    font-size: 0.75rem;
+    margin-bottom: 6px;
+  }
+
+  .adminResponse {
+    padding: 8px;
+    margin-top: 8px;
+    border-radius: 4px;
+  }
+
+  .adminResponse strong {
+    font-size: 0.8rem;
+  }
+
+  .adminResponse p {
+    font-size: 0.75rem;
+  }
+
+  .cancelRequestBtn {
+    padding: 6px 12px;
+    font-size: 10px;
+    margin-top: 8px;
+  }
+
+  .cancelConfirm {
+    padding: 8px;
+    margin-top: 8px;
+    border-radius: 4px;
+  }
+
+  .cancelConfirm p {
+    font-size: 0.8rem;
+    margin-bottom: 6px;
+  }
+
+  .cancelActions {
+    gap: 6px;
+  }
+
+  .confirmCancelBtn,
+  .cancelBtn {
+    padding: 6px 12px;
+    font-size: 10px;
+  }
+
+  .confirmedSection {
+    padding: 8px;
+    border-radius: 6px;
+  }
+
+  .confirmedTitle {
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .confirmedCount {
+    font-size: 0.8rem;
+    margin-bottom: 10px;
+  }
+
+  .confirmedCount strong {
+    font-size: 0.95rem;
+  }
+
+  .smallSearch {
+    padding: 4px 6px;
+    font-size: 10px;
+    margin-bottom: 8px;
+  }
+
+  .confirmedList {
+    gap: 6px;
+    max-height: 200px;
+    padding-right: 2px;
+  }
+
+  .confirmedList::-webkit-scrollbar {
+    width: 2px;
+  }
+
+  .confirmedItem {
+    padding: 6px;
+    border-radius: 4px;
+  }
+
+  .confirmedItemHeader {
+    margin-bottom: 4px;
+  }
+
+  .confirmedItemHeader span {
+    font-size: 0.75rem;
+  }
+
+  .confirmedItemText {
+    font-size: 0.75rem;
+    margin-bottom: 6px;
+  }
+
+  .loading,
+  .empty {
+    padding: 30px 8px;
+    font-size: 0.85rem;
+  }
+
+  .emptySmall {
+    padding: 20px 8px;
+    font-size: 0.8rem;
   }
 }
 

@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { ComparisonProvider } from './context/ComparisonContext';
 import MainSidebar from './components/MainSidebar';
 import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -16,8 +17,10 @@ import Admin from './pages/Admin';
 import Product from './pages/Product';
 import Profile from './pages/Profile';
 import LightingCalculator from './pages/LightingCalculator';
-
-
+import Guide from './pages/Guide';
+import Comparison from './pages/Comparison';
+import NotFound from './pages/NotFound';
+import EquipmentGuide from './pages/EquipmentGuide';
 function App() {
   const [isCollapsed, setIsCollapsed] = useState(() => {
     const saved = localStorage.getItem('sidebarCollapsed');
@@ -31,17 +34,17 @@ function App() {
   return (
     <Router>
       <ScrollToTop />
-      
-      {/* Физическая верёвочка с лампочкой */}
-      <LampRope />
+      <ComparisonProvider>
+        {/* Физическая верёвочка с лампочкой */}
+        <LampRope />
 
-      {/* Анимация смены темы расширяющимся кругом */}
-      <ThemeTransition />
+        {/* Анимация смены темы расширяющимся кругом */}
+        <ThemeTransition />
 
-      {/* Временная панель выбора цвета темы */}
-      <ThemeColorPicker />
-      
-      <Routes>
+        {/* Временная панель выбора цвета темы */}
+        <ThemeColorPicker />
+
+        <Routes>
         <Route path="/auth" element={<Auth />} />
 
         {/* Публичные страницы - доступны без авторизации */}
@@ -69,14 +72,22 @@ function App() {
               </div>
             </>
           } />
-          <Route path="/calculator" element={
-            <>
-              <MainSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
-              <div className={`${styles.mainContent} ${isCollapsed ? styles.mainContentCollapsed : ''}`}>
-                <LightingCalculator />
-              </div>
-            </>
-          } />
+           <Route path="/calculator" element={
+             <>
+               <MainSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+               <div className={`${styles.mainContent} ${isCollapsed ? styles.mainContentCollapsed : ''}`}>
+                 <LightingCalculator />
+               </div>
+             </>
+           } />
+            <Route path="/comparison" element={
+             <>
+               <MainSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+               <div className={`${styles.mainContent} ${isCollapsed ? styles.mainContentCollapsed : ''}`}>
+                 <Comparison />
+               </div>
+             </>
+           } />
            <Route path="/product/:id" element={
              <>
                <MainSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
@@ -95,6 +106,22 @@ function App() {
              </>
            } />
 
+           <Route path="/guide" element={
+             <>
+               <MainSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+               <div className={`${styles.mainContent} ${isCollapsed ? styles.mainContentCollapsed : ''}`}>
+                 <Guide />
+               </div>
+             </>
+           } />
+     <Route path="/equipment-guide" element={
+             <>
+               <MainSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+               <div className={`${styles.mainContent} ${isCollapsed ? styles.mainContentCollapsed : ''}`}>
+                 <EquipmentGuide />
+               </div>
+             </>
+           } />
          {/* Защищённые страницы - только для авторизованных */}
          <Route path="/requests" element={
            <ProtectedRoute>
@@ -104,15 +131,24 @@ function App() {
              </div>
            </ProtectedRoute>
          } />
-         <Route path="/admin" element={
-           <ProtectedRoute>
-             <MainSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
-             <div className={`${styles.mainContent} ${isCollapsed ? styles.mainContentCollapsed : ''}`}>
-               <Admin />
-             </div>
-           </ProtectedRoute>
-         } />
-      </Routes>
+              <Route path="/admin" element={
+                <ProtectedRoute>
+                  <MainSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+                  <div className={`${styles.mainContent} ${isCollapsed ? styles.mainContentCollapsed : ''}`}>
+                    <Admin />
+                  </div>
+                </ProtectedRoute>
+              } />
+          <Route path="*" element={
+            <>
+              <MainSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+              <div className={`${styles.mainContent} ${isCollapsed ? styles.mainContentCollapsed : ''}`}>
+                <NotFound />
+              </div>
+            </>
+          } />
+        </Routes>
+      </ComparisonProvider>
     </Router>
   );
 }

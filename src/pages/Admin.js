@@ -4,6 +4,14 @@ import { supabase } from '../supabase';
 import styles from './Admin.module.css';
 import ConfirmModal from '../components/ConfirmModal';
 
+// Импортируем созданные компоненты
+import RequestsSection from '../components/admin/RequestsSection';
+import ProductsSection from '../components/admin/ProductsSection';
+import CategoriesSection from '../components/admin/CategoriesSection';
+import UsersSection from '../components/admin/UsersSection';
+import QuestionsSection from '../components/admin/QuestionsSection';
+import ImageCropper from '../components/admin/ImageCropper';
+
 const Admin = () => {
   const [expandedMessages, setExpandedMessages] = useState({});
   const [expandedDescriptions, setExpandedDescriptions] = useState({});
@@ -41,10 +49,10 @@ const Admin = () => {
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
 
   // Фиксированные размеры для всех фотографий товаров
-  const TARGET_ASPECT_RATIO = 3 / 4; // 3:4 соотношение (стандарт для карточек товаров)
+  const TARGET_ASPECT_RATIO = 3 / 4;
   const FINAL_IMAGE_WIDTH = 600;
   const FINAL_IMAGE_HEIGHT = 800;
-  const [globalViewMode, setGlobalViewMode] = useState('list'); // list / grid
+  const [globalViewMode, setGlobalViewMode] = useState('list');
   const [productForm, setProductForm] = useState({
     name: '',
     description: '',
@@ -74,6 +82,22 @@ const Admin = () => {
   const [categoryForm, setCategoryForm] = useState({ name: '', description: '' });
   const [categorySearch, setCategorySearch] = useState('');
 
+  // Состояния для параметров категорий
+  const [showParameterForm, setShowParameterForm] = useState({});
+  const [editingParameter, setEditingParameter] = useState(null);
+  const [parameterForm, setParameterForm] = useState({ category_id: null, name: '', unit: '' });
+  const [expandedParams, setExpandedParams] = useState({});
+
+  // Состояние для параметров товара (при редактировании/создании)
+  const [productParameters, setProductParameters] = useState({});
+
+  // Получить параметры для выбранной категории
+  const getCategoryParamsForForm = (categoryId) => {
+    if (!categoryId) return [];
+    const cat = categories.find(c => c.id === parseInt(categoryId));
+    return cat?.category_parameters || [];
+  };
+
   // Обработка категорий
   let processedCategories = categories.filter(cat => {
     if (!categorySearch.trim()) return true;
@@ -84,7 +108,7 @@ const Admin = () => {
     );
   });
 
-  // Состояние для поиска пользователей
+  // Состояния для поиска пользователей
   const [userSearch, setUserSearch] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState('');
 
@@ -223,7 +247,7 @@ const Admin = () => {
 
       const { data: catData } = await supabase
         .from('categories')
-        .select('*');
+        .select('*, category_parameters (*)');
 
       const { data: usersData } = await supabase
         .from('profiles')
@@ -265,7 +289,6 @@ const Admin = () => {
     if (!editingUser) return;
 
     try {
-      // ✅ Используем Edge Function вместо прямого запроса - обходит все проблемы с RLS
       const { data: { session } } = await supabase.auth.getSession();
 
       const response = await fetch('https://mutebkvjowivxupnexzp.supabase.co/functions/v1/bright-processor', {
@@ -335,7 +358,6 @@ const Admin = () => {
           await supabase.from('products').delete().eq('id', item.id);
           break;
         case 'delete_request':
-          // ✅ Удаление заявки через Edge Function обходит RLS
           const sessionReq = await supabase.auth.getSession();
 
           await fetch('https://mutebkvjowivxupnexzp.supabase.co/functions/v1/delete-request', {
@@ -348,7 +370,6 @@ const Admin = () => {
           });
           break;
         case 'delete_user':
-          // ✅ Удаление пользователя через Edge Function обходит RLS
           const sessionUser = await supabase.auth.getSession();
 
           await fetch('https://mutebkvjowivxupnexzp.supabase.co/functions/v1/delete-user', {
@@ -362,7 +383,6 @@ const Admin = () => {
           break;
 
         case 'delete_question':
-          // ✅ Удаление вопроса через Edge Function обходит RLS
           const sessionQuestion = await supabase.auth.getSession();
 
           const questionResp = await fetch('https://mutebkvjowivxupnexzp.supabase.co/functions/v1/delete-question', {
@@ -379,11 +399,29 @@ const Admin = () => {
             throw new Error(err.error || 'Ошибка удаления вопроса');
           }
           break;
+        case 'delete_answer':
+          if (item.product_answers && item.product_answers.length > 0) {
+            const answerId = item.product_answers[0].id;
+            const { error } = await supabase
+              .from('product_answers')
+              .delete()
+              .eq('id', answerId);
+            
+            if (error) throw error;
+            
+            // Сбрасываем статус вопроса на "не отвечен" и "не опубликован"
+            const { error: updateError } = await supabase
+              .from('product_questions')
+              .update({ is_answered: false, is_published: false })
+              .eq('id', item.id);
+            
+            if (updateError) throw updateError;
+          }
+          break;
         case 'delete_category':
           await supabase.from('categories').delete().eq('id', item.id);
           break;
         case 'reset_password':
-          // ✅ Сброс пароля через Edge Function
           const sessionReset = await supabase.auth.getSession();
 
           const resetResp = await fetch('https://mutebkvjowivxupnexzp.supabase.co/functions/v1/reset-password', {
@@ -422,10 +460,8 @@ const Admin = () => {
     }
   };
 
-
   const handleUpdateRequest = async (requestId) => {
     try {
-      // ✅ Если написан ответ но статус остался Ожидает - автоматически ставим Выполнена
       let finalStatus = requestStatus
       if (adminResponse.trim() && finalStatus === 'pending') {
         finalStatus = 'completed'
@@ -487,11 +523,9 @@ const Admin = () => {
     let selectionWidth, selectionHeight;
 
     if (width / height > TARGET_ASPECT_RATIO) {
-      // Изображение шире нужного соотношения - ограничиваем по высоте
       selectionHeight = height * 0.8;
       selectionWidth = selectionHeight * TARGET_ASPECT_RATIO;
     } else {
-      // Изображение выше нужного соотношения - ограничиваем по ширине
       selectionWidth = width * 0.8;
       selectionHeight = selectionWidth / TARGET_ASPECT_RATIO;
     }
@@ -536,7 +570,6 @@ const Admin = () => {
       let newX = e.clientX - dragStart.x;
       let newY = e.clientY - dragStart.y;
 
-      // Ограничиваем передвижение в пределах изображения
       newX = Math.max(0, Math.min(newX, imageDimensions.width - cropSelection.width));
       newY = Math.max(0, Math.min(newY, imageDimensions.height - cropSelection.height));
 
@@ -551,40 +584,33 @@ const Admin = () => {
       const deltaX = e.clientX - dragStart.x;
       const deltaY = e.clientY - dragStart.y;
 
-      // Рассчитываем новую ширину и высоту с сохранением соотношения
       let newWidth = dragStart.selectionWidth;
       let newHeight = dragStart.selectionHeight;
       let newX = dragStart.selectionX;
       let newY = dragStart.selectionY;
 
       if (resizeHandle === 'br') {
-        // Правая нижняя точка
         const scale = Math.min(deltaX / dragStart.selectionWidth, deltaY / dragStart.selectionHeight);
         newWidth = Math.max(100, dragStart.selectionWidth * (1 + scale));
         newHeight = newWidth / TARGET_ASPECT_RATIO;
       } else if (resizeHandle === 'tl') {
-        // Левая верхняя точка
         const scale = Math.min(-deltaX / dragStart.selectionWidth, -deltaY / dragStart.selectionHeight);
         newWidth = Math.max(100, dragStart.selectionWidth * (1 + scale));
         newHeight = newWidth / TARGET_ASPECT_RATIO;
         newX = dragStart.selectionX + (dragStart.selectionWidth - newWidth);
         newY = dragStart.selectionY + (dragStart.selectionHeight - newHeight);
       } else if (resizeHandle === 'tr') {
-        // Правая верхняя точка
         const scale = Math.min(deltaX / dragStart.selectionWidth, -deltaY / dragStart.selectionHeight);
         newWidth = Math.max(100, dragStart.selectionWidth * (1 + scale));
         newHeight = newWidth / TARGET_ASPECT_RATIO;
         newY = dragStart.selectionY + (dragStart.selectionHeight - newHeight);
       } else if (resizeHandle === 'bl') {
-        // Левая нижняя точка
         const scale = Math.min(-deltaX / dragStart.selectionWidth, deltaY / dragStart.selectionHeight);
         newWidth = Math.max(100, dragStart.selectionWidth * (1 + scale));
         newHeight = newWidth / TARGET_ASPECT_RATIO;
         newX = dragStart.selectionX + (dragStart.selectionWidth - newWidth);
       }
 
-      // Ограничиваем размеры в пределах изображения
-      // ✅ Абсолютные ограничения рамки в пределах изображения
       if (newX < 0) {
         newWidth += newX;
         newX = 0;
@@ -600,7 +626,6 @@ const Admin = () => {
         newHeight = imageDimensions.height - newY;
       }
 
-      // Корректировка пропорций после ограничений
       const finalRatio = newWidth / newHeight;
       if (finalRatio > TARGET_ASPECT_RATIO) {
         newWidth = newHeight * TARGET_ASPECT_RATIO;
@@ -608,7 +633,6 @@ const Admin = () => {
         newHeight = newWidth / TARGET_ASPECT_RATIO;
       }
 
-      // Финальная проверка чтобы точно не вышло за границы
       if (newX + newWidth > imageDimensions.width) {
         newX = imageDimensions.width - newWidth;
       }
@@ -616,7 +640,6 @@ const Admin = () => {
         newY = imageDimensions.height - newHeight;
       }
 
-      // Минимальный размер
       newWidth = Math.max(100, newWidth);
       newHeight = Math.max(133, newHeight);
 
@@ -640,7 +663,6 @@ const Admin = () => {
     setUploading(true);
 
     try {
-      // Создаем canvas для обрезки
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       const img = new Image();
@@ -651,15 +673,12 @@ const Admin = () => {
         img.onload = resolve;
       });
 
-      // Рассчитываем коэффициент масштабирования
       const scaleX = img.naturalWidth / imageDimensions.width;
       const scaleY = img.naturalHeight / imageDimensions.height;
 
-      // Устанавливаем финальные размеры
       canvas.width = FINAL_IMAGE_WIDTH;
       canvas.height = FINAL_IMAGE_HEIGHT;
 
-      // Обрезаем и изменяем размер
       ctx.drawImage(
         img,
         cropSelection.x * scaleX,
@@ -672,12 +691,10 @@ const Admin = () => {
         FINAL_IMAGE_HEIGHT
       );
 
-      // Конвертируем в blob
       const blob = await new Promise((resolve) => {
         canvas.toBlob(resolve, 'image/webp', 0.9);
       });
 
-      // Загружаем обрезанное изображение
       const fileName = `${Date.now()}.webp`;
       const { error: uploadError } = await supabase.storage
         .from('products')
@@ -710,21 +727,42 @@ const Admin = () => {
   const handleCreateProduct = async (e) => {
     e.preventDefault();
     try {
-      const { error } = await supabase
+      const paramsObj = { ...productParameters };
+      Object.keys(paramsObj).forEach(key => {
+        if (!paramsObj[key]?.trim()) delete paramsObj[key];
+      });
+
+      const hasParams = Object.keys(paramsObj).length > 0;
+
+      let payload = {
+        name: productForm.name,
+        description: productForm.description,
+        price: parseFloat(productForm.price),
+        image_url: productForm.image_url,
+        category_id: productForm.category_id ? parseInt(productForm.category_id) : null,
+        stock: parseInt(productForm.stock) || 0,
+        is_active: productForm.is_active
+      };
+
+      if (hasParams) {
+        payload.parameters = JSON.stringify(paramsObj);
+      }
+
+      let { error } = await supabase
         .from('products')
-        .insert({
-          name: productForm.name,
-          description: productForm.description,
-          price: parseFloat(productForm.price),
-          image_url: productForm.image_url,
-          category_id: productForm.category_id ? parseInt(productForm.category_id) : null,
-          stock: parseInt(productForm.stock) || 0,
-          is_active: productForm.is_active
-        });
+        .insert(payload);
+
+      if (error && error.code === 'PGRST204' && hasParams) {
+        delete payload.parameters;
+        error = null;
+        const retryResult = await supabase.from('products').insert(payload);
+        error = retryResult.error;
+      }
 
       if (error) throw error;
 
       setProductForm({ name: '', description: '', price: '', image_url: '', category_id: '', stock: '', is_active: true });
+      setProductParameters({});
       setShowProductForm(false);
       fetchData();
     } catch (error) {
@@ -743,6 +781,15 @@ const Admin = () => {
       stock: product.stock?.toString() || '',
       is_active: product.is_active ?? true
     });
+    if (product.parameters) {
+      try {
+        setProductParameters(JSON.parse(product.parameters));
+      } catch (e) {
+        setProductParameters({});
+      }
+    } else {
+      setProductParameters({});
+    }
   };
 
   const handleUpdateProduct = async (e) => {
@@ -750,23 +797,47 @@ const Admin = () => {
     if (!editingProduct) return;
 
     try {
-      const { error } = await supabase
+      const paramsObj = { ...productParameters };
+      Object.keys(paramsObj).forEach(key => {
+        if (!paramsObj[key]?.trim()) delete paramsObj[key];
+      });
+
+      const hasParams = Object.keys(paramsObj).length > 0;
+
+      const updatePayload = {
+        name: productForm.name,
+        description: productForm.description,
+        price: parseFloat(productForm.price),
+        image_url: productForm.image_url,
+        category_id: productForm.category_id ? parseInt(productForm.category_id) : null,
+        stock: parseInt(productForm.stock) || 0,
+        is_active: productForm.is_active
+      };
+
+      if (hasParams) {
+        updatePayload.parameters = JSON.stringify(paramsObj);
+      }
+
+      let { error } = await supabase
         .from('products')
-        .update({
-          name: productForm.name,
-          description: productForm.description,
-          price: parseFloat(productForm.price),
-          image_url: productForm.image_url,
-          category_id: productForm.category_id ? parseInt(productForm.category_id) : null,
-          stock: parseInt(productForm.stock) || 0,
-          is_active: productForm.is_active
-        })
+        .update(updatePayload)
         .eq('id', editingProduct);
+
+      if (error && error.code === 'PGRST204') {
+        delete updatePayload.parameters;
+        error = null;
+        const retryResult = await supabase
+          .from('products')
+          .update(updatePayload)
+          .eq('id', editingProduct);
+        error = retryResult.error;
+      }
 
       if (error) throw error;
 
       setEditingProduct(null);
       setProductForm({ name: '', description: '', price: '', image_url: '', category_id: '', stock: '', is_active: true });
+      setProductParameters({});
       fetchData();
     } catch (error) {
       console.error('Error updating product:', error);
@@ -776,6 +847,7 @@ const Admin = () => {
   const handleCancelEdit = () => {
     setEditingProduct(null);
     setProductForm({ name: '', description: '', price: '', image_url: '', category_id: '', stock: '', is_active: true });
+    setProductParameters({});
   };
 
   // Обработчики категорий
@@ -823,6 +895,87 @@ const Admin = () => {
     }
   };
 
+  // Обработчики параметров категорий
+  const handleCreateParameter = async (e, categoryId) => {
+    e.preventDefault();
+    if (!parameterForm.name.trim()) {
+      alert('Название параметра обязательно');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('category_parameters')
+        .insert({
+          category_id: categoryId,
+          name: parameterForm.name.trim(),
+          unit: parameterForm.unit.trim()
+        });
+
+      if (error) throw error;
+
+      setParameterForm({ category_id: null, name: '', unit: '' });
+      setShowParameterForm(prev => ({ ...prev, [categoryId]: false }));
+      fetchData();
+      showSuccess('Параметр успешно создан');
+    } catch (error) {
+      console.error('Error creating parameter:', error);
+      alert('Ошибка при создании параметра');
+    }
+  };
+
+  const handleUpdateParameter = async (e) => {
+    e.preventDefault();
+    if (!editingParameter) return;
+
+    try {
+      const { error } = await supabase
+        .from('category_parameters')
+        .update({
+          name: parameterForm.name.trim(),
+          unit: parameterForm.unit.trim()
+        })
+        .eq('id', editingParameter);
+
+      if (error) throw error;
+
+      setEditingParameter(null);
+      setParameterForm({ category_id: null, name: '', unit: '' });
+      fetchData();
+      showSuccess('Параметр успешно обновлен');
+    } catch (error) {
+      console.error('Error updating parameter:', error);
+      alert('Ошибка при обновлении параметра');
+    }
+  };
+
+  const handleDeleteParameter = async (parameterId) => {
+    if (!window.confirm('Вы действительно хотите удалить этот параметр?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('category_parameters')
+        .delete()
+        .eq('id', parameterId);
+
+      if (error) throw error;
+
+      fetchData();
+      showSuccess('Параметр успешно удален');
+    } catch (error) {
+      console.error('Error deleting parameter:', error);
+      alert('Ошибка при удалении параметра');
+    }
+  };
+
+  const handleEditParameter = (categoryId, param) => {
+    setEditingParameter(param.id);
+    setParameterForm({
+      category_id: categoryId,
+      name: param.name,
+      unit: param.unit || ''
+    });
+  };
 
   const getStatusText = (status) => {
     const statusMap = {
@@ -859,12 +1012,12 @@ const Admin = () => {
         >
           Товары ({products.length})
         </button>
-        <button
-          className={`${styles.tab} ${activeTab === 'categories' ? styles.active : ''}`}
-          onClick={() => setActiveTab('categories')}
-        >
-          Категории ({categories.length})
-        </button>
+         <button
+           className={`${styles.tab} ${activeTab === 'categories' ? styles.active : ''}`}
+           onClick={() => setActiveTab('categories')}
+         >
+           Категории ({categories.length})
+         </button>
         {userProfile?.role === 'admin' && (
           <button
             className={`${styles.tab} ${activeTab === 'users' ? styles.active : ''}`}
@@ -941,458 +1094,126 @@ const Admin = () => {
             </button>
           </div>
 
-          {processedRequests.length === 0 ? (
-            <p className={styles.empty}>Заявок пока нет</p>
-          ) : (
-            <div className={`${styles.requestsList} ${globalViewMode === 'grid' ? styles.requestsGrid : ''}`}>
-              {processedRequests.map(req => (
-                <div key={req.id} className={styles.requestCard}>
-                  <div className={styles.requestLeft}>
-                    <div className={styles.requestHeader}>
-                      <div>
-                        <strong>{req.profiles?.name}</strong>
-                        <span className={styles.requestEmail}>{req.profiles?.email}</span>
-                      </div>
-                      <span className={styles.requestDate}>
-                        {new Date(req.created_at).toLocaleDateString('ru-RU')}
-                      </span>
-                    </div>
-                    <p className={styles.requestPhone}>Телефон: {req.phone}</p>
-                    <div className={styles.messageWrapper}>
-                      <p className={styles.requestMessage}>
-                        {expandedMessages[req.id]
-                          ? req.message
-                          : (req.message.length > 25
-                            ? req.message.substring(0, 25) + '...'
-                            : req.message)}
-                      </p>
-                      {req.message.length > 25 && (
-                        <button
-                          className={styles.expandBtn}
-                          onClick={() => setExpandedMessages(prev => ({
-                            ...prev,
-                            [req.id]: !prev[req.id]
-                          }))}
-                        >
-                          {expandedMessages[req.id] ? 'Свернуть' : 'Читать далее...'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <div className={styles.requestRight}>
-                    <div className={styles.requestStatus}>
-                      <span className={`${styles.status} ${getStatusClass(req.status)}`}>{getStatusText(req.status)}</span>
-                    </div>
-                    <div className={styles.requestActions}>
-                      {editingRequest !== req.id ? (
-                        <>
-                          <button
-                            className={styles.editBtn}
-                            onClick={() => {
-                              setEditingRequest(req.id);
-                              setAdminResponse(req.admin_response || '');
-                              setRequestStatus(req.status);
-                            }}
-                          >
-                            Ответить
-                          </button>
-                          <button
-                            className={styles.deleteBtn}
-                            onClick={() => openConfirmModal('delete_request', req)}
-                          >
-                            Удалить
-                          </button>
-                        </>
-                      ) : null}
-                    </div>
-                  </div>
-                  {editingRequest === req.id && (
-                    <div className={styles.editForm}>
-                      <textarea
-                        value={adminResponse}
-                        onChange={(e) => setAdminResponse(e.target.value)}
-                        placeholder="Ответ администратора..."
-                        rows={3}
-                        maxLength={500}
-                      />
-                      <select
-                        value={requestStatus}
-                        onChange={(e) => setRequestStatus(e.target.value)}
-                      >
-                        <option value="pending">Ожидает</option>
-                        <option value="in_progress">В работе</option>
-                        <option value="completed">Выполнена</option>
-                        <option value="rejected">Отклонена</option>
-                      </select>
-                      <div className={styles.editActions}>
-                        <button onClick={() => handleUpdateRequest(req.id)}>Сохранить</button>
-                        <button onClick={() => setEditingRequest(null)}>Отмена</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+          <RequestsSection
+            processedRequests={processedRequests}
+            globalViewMode={globalViewMode}
+            expandedMessages={expandedMessages}
+            setExpandedMessages={setExpandedMessages}
+            editingRequest={editingRequest}
+            setEditingRequest={setEditingRequest}
+            adminResponse={adminResponse}
+            setAdminResponse={setAdminResponse}
+            requestStatus={requestStatus}
+            setRequestStatus={setRequestStatus}
+            handleUpdateRequest={handleUpdateRequest}
+            openConfirmModal={openConfirmModal}
+            getStatusClass={getStatusClass}
+            getStatusText={getStatusText}
+            showSuccess={showSuccess}
+          />
         </div>
       )}
 
       {activeTab === 'products' && (
         <div className={styles.productsSection}>
-          <div className={styles.filtersBar}>
-            <div className={styles.searchWrapper}>
-              <img src="/images/ico/icoLupa.png" alt="Поиск" className={styles.searchIcon} />
-              <input
-                type="text"
-                placeholder="Поиск по названию и описанию..."
-                value={productSearch}
-                onChange={(e) => setProductSearch(e.target.value)}
-                className={styles.searchInput}
-              />
-            </div>
+          <ProductsSection
+            processedProducts={processedProducts}
+            globalViewMode={globalViewMode}
+            setGlobalViewMode={setGlobalViewMode}
+            categories={categories}
+            expandedDescriptions={expandedDescriptions}
+            setExpandedDescriptions={setExpandedDescriptions}
+            handleEditProduct={handleEditProduct}
+            openConfirmModal={openConfirmModal}
+            showProductForm={showProductForm}
+            editingProduct={editingProduct}
+            productFormState={productForm}
+            setProductFormState={setProductForm}
+            productParameters={productParameters}
+            setProductParameters={setProductParameters}
+            handleCreateProduct={handleCreateProduct}
+            handleUpdateProduct={handleUpdateProduct}
+            handleCancelEdit={handleCancelEdit}
+            handleImageUpload={handleImageUpload}
+            uploading={uploading}
+            getCategoryParamsForForm={getCategoryParamsForForm}
+            setShowProductForm={setShowProductForm}
+            setEditingProduct={setEditingProduct}
+            // Фильтры товаров
+            productSearch={productSearch}
+            setProductSearch={setProductSearch}
+            productCategory={productCategory}
+            setProductCategory={setProductCategory}
+            productActive={productActive}
+            setProductActive={setProductActive}
+            productSortDate={productSortDate}
+            setProductSortDate={setProductSortDate}
+            productDateFrom={productDateFrom}
+            setProductDateFrom={setProductDateFrom}
+            productDateTo={productDateTo}
+            setProductDateTo={setProductDateTo}
+          />
+        </div>
+      )}
 
-            <select
-              value={productCategory}
-              onChange={(e) => setProductCategory(e.target.value)}
-              className={styles.filterSelect}
-            >
-              <option value="">Все категории</option>
-              {categories.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
-              ))}
-            </select>
-
-            <select
-              value={productActive}
-              onChange={(e) => setProductActive(e.target.value)}
-              className={styles.filterSelect}
-            >
-              <option value="">Все товары</option>
-              <option value="active">Активные</option>
-              <option value="inactive">Неактивные</option>
-            </select>
-
-            <select
-              value={productSortDate}
-              onChange={(e) => setProductSortDate(e.target.value)}
-              className={styles.filterSelect}
-            >
-              <option value="desc">Сначала новые</option>
-              <option value="asc">Сначала старые</option>
-            </select>
-
-            <input
-              type="date"
-              value={productDateFrom}
-              onChange={(e) => setProductDateFrom(e.target.value)}
-              className={styles.dateInput}
-              placeholder="От даты"
-            />
-            <input
-              type="date"
-              value={productDateTo}
-              onChange={(e) => setProductDateTo(e.target.value)}
-              className={styles.dateInput}
-              placeholder="До даты"
-            />
-
-            <span className={styles.searchCount}>Всего: {processedProducts.length}</span>
-
-            <button
-              onClick={() => setGlobalViewMode(globalViewMode === 'list' ? 'grid' : 'list')}
-              className={styles.viewToggleBtn}
-            >
-              <img src="/images/ico/icoMain.png" alt="Вид" className={styles.viewIcon} />
-            </button>
-
-            <button
-              className={styles.addBtn}
-              onClick={() => {
-                setShowProductForm(!showProductForm);
-                setEditingProduct(null);
-              }}
-            >
-              {showProductForm ? 'Отмена' : '+ Добавить товар'}
-            </button>
-          </div>
-
-          {(showProductForm || editingProduct) && (
-            <form className={styles.productForm} onSubmit={editingProduct ? handleUpdateProduct : handleCreateProduct}>
-              <h3>{editingProduct ? 'Редактирование товара' : 'Новый товар'}</h3>
-              <div className={styles.formRow}>
-                <input
-                  type="text"
-                  placeholder="Название"
-                  value={productForm.name}
-                  onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-                  required
-                />
-                <input
-                  type="number"
-                  placeholder="Цена"
-                  value={productForm.price}
-                  onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
-                  required
-                />
-              </div>
-              <textarea
-                placeholder="Описание"
-                value={productForm.description}
-                onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                rows={3}
-              />
-
-              <div className={styles.imageUpload}>
-                <label htmlFor="imageInput">Изображение товара</label>
-                <input
-                  type="file"
-                  id="imageInput"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  disabled={uploading}
-                />
-                {uploading && <span className={styles.uploading}>Загрузка...</span>}
-                {productForm.image_url && (
-                  <div className={styles.imagePreview}>
-                    <img src={productForm.image_url} alt="Preview" />
-                  </div>
-                )}
-              </div>
-
-              <div className={styles.formRow}>
-                <select
-                  value={productForm.category_id}
-                  onChange={(e) => setProductForm({ ...productForm, category_id: e.target.value })}
-                >
-                  <option value="">Без категории</option>
-                  {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  placeholder="Количество"
-                  value={productForm.stock}
-                  onChange={(e) => setProductForm({ ...productForm, stock: e.target.value })}
-                />
-              </div>
-
-              <div className={styles.checkboxRow}>
-                <label className={styles.checkboxLabel}>
-                  <input
-                    type="checkbox"
-                    checked={productForm.is_active}
-                    onChange={(e) => setProductForm({ ...productForm, is_active: e.target.checked })}
-                  />
-                  <span>Активен (отображается в каталоге)</span>
-                </label>
-              </div>
-
-              <div className={styles.formActions}>
-                <button type="submit" className={styles.submitProductBtn}>
-                  {editingProduct ? 'Сохранить изменения' : 'Создать товар'}
-                </button>
-                {editingProduct && (
-                  <button type="button" className={styles.cancelBtn} onClick={handleCancelEdit}>
-                    Отмена
-                  </button>
-                )}
-              </div>
-            </form>
-          )}
-
-          <div className={`${styles.productsList} ${globalViewMode === 'grid' ? styles.productsGrid : ''}`}>
-            {processedProducts.map(product => (
-              <div key={product.id} className={styles.productCard}>
-                <img
-                  src={product.image_url || 'https://via.placeholder.com/100'}
-                  alt={product.name}
-                  className={styles.productThumb}
-                />
-                <div className={styles.productDetails}>
-                  <h3>{product.name}</h3>
-                  <p className={styles.truncatedText}>
-                    {expandedDescriptions[`product_${product.id}`]
-                      ? product.description
-                      : (product.description && product.description.length > 100
-                        ? product.description.substring(0, 100) + '...'
-                        : product.description)}
-                  </p>
-                  {product.description && product.description.length > 100 && (
-                    <button
-                      className={styles.expandBtn}
-                      onClick={() => setExpandedDescriptions(prev => ({
-                        ...prev,
-                        [`product_${product.id}`]: !prev[`product_${product.id}`]
-                      }))}
-                    >
-                      {expandedDescriptions[`product_${product.id}`] ? 'Свернуть' : 'Читать далее...'}
-                    </button>
-                  )}
-                  <div className={styles.productMeta}>
-                    <span className={styles.productPrice}>{product.price} ₽</span>
-                    <span className={styles.productStock}>Склад: {product.stock}</span>
-                    <span className={product.is_active ? styles.statusActive : styles.statusInactive}>
-                      {product.is_active ? 'Активен' : 'Неактивен'}
-                    </span>
-                  </div>
-                </div>
-                <div className={styles.productActions}>
-                  <button
-                    className={styles.editProductBtn}
-                    onClick={() => handleEditProduct(product)}
-                  >
-                    Редактировать
-                  </button>
-                  <button
-                    className={styles.deleteBtn}
-                    onClick={() => openConfirmModal('delete_product', product)}
-                  >
-                    Удалить
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+      {activeTab === 'categories' && (
+        <div className={styles.categoriesSection}>
+          <CategoriesSection
+            processedCategories={processedCategories}
+            products={products}
+            expandedDescriptions={expandedDescriptions}
+            setExpandedDescriptions={setExpandedDescriptions}
+            editingCategory={editingCategory}
+            setEditingCategory={setEditingCategory}
+            categoryForm={categoryForm}
+            setCategoryForm={setCategoryForm}
+            showCategoryForm={showCategoryForm}
+            setShowCategoryForm={setShowCategoryForm}
+            handleCreateCategory={handleCreateCategory}
+            handleUpdateCategory={handleUpdateCategory}
+            openConfirmModal={openConfirmModal}
+            // Фильтры категорий
+            categorySearch={categorySearch}
+            setCategorySearch={setCategorySearch}
+            // Параметры категорий
+            expandedParams={expandedParams}
+            setExpandedParams={setExpandedParams}
+            showParameterForm={showParameterForm}
+            setShowParameterForm={setShowParameterForm}
+            editingParameter={editingParameter}
+            setEditingParameter={setEditingParameter}
+            parameterForm={parameterForm}
+            setParameterForm={setParameterForm}
+            handleCreateParameter={handleCreateParameter}
+            handleUpdateParameter={handleUpdateParameter}
+            handleEditParameter={handleEditParameter}
+            handleDeleteParameter={handleDeleteParameter}
+          />
         </div>
       )}
 
       {activeTab === 'users' && userProfile?.role === 'admin' && (
         <div className={styles.usersSection}>
-          <div className={styles.filtersBar}>
-            <div className={styles.searchWrapper}>
-              <img src="/images/ico/icoLupa.png" alt="Поиск" className={styles.searchIcon} />
-              <input
-                type="text"
-                placeholder="Поиск по имени и email..."
-                value={userSearch}
-                onChange={(e) => setUserSearch(e.target.value)}
-                className={styles.searchInput}
-              />
-            </div>
-
-            <select
-              value={userRoleFilter}
-              onChange={(e) => setUserRoleFilter(e.target.value)}
-              className={styles.filterSelect}
-            >
-              <option value="">Все роли</option>
-              <option value="user">Пользователи</option>
-              <option value="manager">Менеджеры</option>
-              <option value="admin">Администраторы</option>
-            </select>
-
-            <span className={styles.searchCount}>Всего: {processedUsers.length}</span>
-
-            <button
-              onClick={() => setGlobalViewMode(globalViewMode === 'list' ? 'grid' : 'list')}
-              className={styles.viewToggleBtn}
-            >
-              <img src="/images/ico/icoMain.png" alt="Вид" className={styles.viewIcon} />
-            </button>
-          </div>
-          <h2>Пользователи</h2>
-
-          {processedUsers.length === 0 ? (
-            <p className={styles.empty}>Пользователей пока нет</p>
-          ) : (
-            <div className={`${styles.usersList} ${globalViewMode === 'grid' ? styles.usersGrid : ''}`}>
-              {processedUsers.map(user => (
-                <div key={user.id} className={styles.userCard}>
-                  <div className={styles.userInfo}>
-                    <div className={styles.userMainInfo}>
-                      <h3>{user.name}</h3>
-                      <span className={styles.userEmail}>{user.email}</span>
-                    </div>
-                    <span className={`${styles.roleBadge} ${styles['role_' + user.role]}`}>
-                      {user.role === 'admin' ? 'Админ' : user.role === 'manager' ? 'Менеджер' : 'Пользователь'}
-                    </span>
-                  </div>
-                  <p className={styles.userDate}>
-                    Регистрация: {new Date(user.created_at).toLocaleDateString('ru-RU')}
-                  </p>
-
-                  {editingUser === user.id ? (
-                    <form className={styles.userEditForm} onSubmit={handleUpdateUser}>
-                      <div className={styles.formRow}>
-                        <div
-                          className={userForm.name !== originalUser.name ? styles.inputModified : ''}
-                          onClick={(e) => {
-                            if (e.target.tagName === 'INPUT') return;
-                            setUserForm({ ...userForm, name: originalUser.name });
-                          }}
-                        >
-                          <input
-                            type="text"
-                            placeholder="Никнейм"
-                            value={userForm.name}
-                            onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
-                            required
-                          />
-                        </div>
-                        <div
-                          className={userForm.email !== originalUser.email ? styles.inputModified : ''}
-                          onClick={(e) => {
-                            if (e.target.tagName === 'INPUT') return;
-                            setUserForm({ ...userForm, email: originalUser.email });
-                          }}
-                        >
-                          <input
-                            type="email"
-                            placeholder="Email"
-                            value={userForm.email}
-                            onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
-                            required
-                          />
-                        </div>
-                        <div
-                          className={userForm.role !== originalUser.role ? styles.inputModified : ''}
-                          onClick={(e) => {
-                            if (e.target.tagName === 'SELECT') return;
-                            setUserForm({ ...userForm, role: originalUser.role });
-                          }}
-                        >
-                          <select
-                            value={userForm.role}
-                            onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
-                          >
-                            <option value="user">Пользователь</option>
-                            <option value="manager">Менеджер</option>
-                            <option value="admin">Админ</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className={styles.userActions}>
-                        <button type="submit" className={styles.saveUserBtn}>Сохранить</button>
-                        <button type="button" className={styles.cancelBtn} onClick={handleCancelUserEdit}>Отмена</button>
-                      </div>
-                    </form>
-                  ) : (
-                    <div className={styles.userActions}>
-                      <button
-                        className={styles.editUserBtn}
-                        onClick={() => handleEditUser(user)}
-                      >
-                        Редактировать
-                      </button>
-                      <button
-                        className={styles.resetPasswordBtn}
-                        onClick={() => openConfirmModal('reset_password', user)}
-                      >
-                        Сбросить пароль
-                      </button>
-                      <button
-                        className={styles.deleteUserBtn}
-                        onClick={() => openConfirmModal('delete_user', user)}
-                      >
-                        Удалить
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+          <UsersSection
+            processedUsers={processedUsers}
+            globalViewMode={globalViewMode}
+            setGlobalViewMode={setGlobalViewMode}
+            editingUser={editingUser}
+            setEditingUser={setEditingUser}
+            userForm={userForm}
+            setUserForm={setUserForm}
+            originalUser={originalUser}
+            setOriginalUser={setOriginalUser}
+            handleEditUser={handleEditUser}
+            handleUpdateUser={handleUpdateUser}
+            handleCancelUserEdit={handleCancelUserEdit}
+            openConfirmModal={openConfirmModal}
+            // Фильтры пользователей
+            userSearch={userSearch}
+            setUserSearch={setUserSearch}
+            userRoleFilter={userRoleFilter}
+            setUserRoleFilter={setUserRoleFilter}
+          />
         </div>
       )}
 
@@ -1421,52 +1242,9 @@ const Admin = () => {
               <option value="answered">С ответом</option>
             </select>
 
-            <span className={styles.searchCount}>Всего: {
-              questions.filter(q => {
-                if (!questionSearch.trim()) return true;
-                const query = questionSearch.toLowerCase();
-                return (
-                  q.user_name?.toLowerCase().includes(query) ||
-                  q.question?.toLowerCase().includes(query) ||
-                  q.products?.name?.toLowerCase().includes(query)
-                );
-              }).filter(q => {
-                if (!questionStatusFilter) return true;
-                if (questionStatusFilter === 'new') return !q.is_published;
-                if (questionStatusFilter === 'published') return q.is_published;
-                if (questionStatusFilter === 'answered') return q.is_answered;
-                return true;
-              }).length
-            }</span>
-
-            <button
-              onClick={() => setGlobalViewMode(globalViewMode === 'list' ? 'grid' : 'list')}
-              className={styles.viewToggleBtn}
-            >
-              <img src="/images/ico/icoMain.png" alt="Вид" className={styles.viewIcon} />
-            </button>
-          </div>
-
-          {
-            questions.filter(q => {
-              if (!questionSearch.trim()) return true;
-              const query = questionSearch.toLowerCase();
-              return (
-                q.user_name?.toLowerCase().includes(query) ||
-                q.question?.toLowerCase().includes(query) ||
-                q.products?.name?.toLowerCase().includes(query)
-              );
-            }).filter(q => {
-              if (!questionStatusFilter) return true;
-              if (questionStatusFilter === 'new') return !q.is_published;
-              if (questionStatusFilter === 'published') return q.is_published;
-              if (questionStatusFilter === 'answered') return q.is_answered;
-              return true;
-            }).length === 0 ? (
-              <p className={styles.empty}>Вопросов пока нет</p>
-            ) : (
-              <div className={`${styles.requestsList} ${globalViewMode === 'grid' ? styles.requestsGrid : ''}`}>
-                {questions.filter(q => {
+            <span className={styles.searchCount}>
+              {
+                questions.filter(q => {
                   if (!questionSearch.trim()) return true;
                   const query = questionSearch.toLowerCase();
                   return (
@@ -1480,307 +1258,39 @@ const Admin = () => {
                   if (questionStatusFilter === 'published') return q.is_published;
                   if (questionStatusFilter === 'answered') return q.is_answered;
                   return true;
-                }).map(q => (
-                  <div key={q.id} className={styles.requestCard}>
-                    <div className={styles.requestLeft}>
-                      <div className={styles.requestHeader}>
-                        <div>
-                          Пользователь: <strong> {q.user_name}</strong>
-                          <div
-                            style={{
-                              fontSize: '13px',
-                              color: '#0d9488',
-                              marginTop: '4px',
-                              cursor: 'pointer',
-                              position: 'relative'
-                            }}
-                            onClick={() => window.open(`/product/${q.products.id}`, '_blank')}
-                            onMouseEnter={(e) => {
-                              setHoveredProduct(q.products.id);
-                              window.lastMouseX = e.clientX;
-                              window.lastMouseY = e.clientY;
-                            }}
-                            onMouseLeave={() => setHoveredProduct(null)}
-                          >
-                            📦 О товаре: <strong>{q.products?.name}</strong>
+                }).length
+              }
+            </span>
 
-                            {/* Всплывающая карточка товара при наведении */}
-                            {hoveredProduct === q.products.id && (
-                              <div style={{
-                                position: 'fixed',
-                                background: 'var(--bg-secondary)',
-                                border: '1px solid var(--border-color)',
-                                borderRadius: '8px',
-                                padding: '12px',
-                                width: '220px',
-                                zIndex: 999,
-                                boxShadow: '0 8px 24px var(--shadow-color)',
-                                left: `${document.body.scrollLeft + window.lastMouseX - 110}px`,
-                                top: `${document.body.scrollTop + window.lastMouseY + 10}px`,
-                                animation: 'fadeIn 0.15s ease'
-                              }}>
-                                <img
-                                  src={products.find(p => p.id === q.products.id)?.image_url || 'https://via.placeholder.com/200'}
-                                  alt={q.products.name}
-                                  style={{
-                                    width: '100%',
-                                    height: '100px',
-                                    objectFit: 'contain',
-                                    borderRadius: '4px',
-                                    marginBottom: '8px',
-                                    background: 'var(--bg-tertiary)'
-                                  }}
-                                />
-                                <p style={{ margin: '0 0 4px 0', fontWeight: 600, fontSize: '13px' }}>{q.products.name}</p>
-                                <p style={{ margin: '0', fontSize: '12px', color: '#0d9488' }}>
-                                  💰 {products.find(p => p.id === q.products.id)?.price || 0} ₽
-                                </p>
-                                <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                                  На складе: {products.find(p => p.id === q.products.id)?.stock || 0} шт.
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <span className={styles.requestDate}>
-                          {new Date(q.created_at).toLocaleDateString('ru-RU')}
-                        </span>
-                      </div>
-                      <p className={styles.requestMessage}>Спрашивает: {q.question}</p>
-                    </div>
-
-                    <div className={styles.requestRight}>
-                      <div className={styles.requestStatus}>
-                        {!q.is_published && <span className={`${styles.status} ${styles.statusPending}`}>На модерации</span>}
-                        {q.is_published && !q.is_answered && <span className={`${styles.status} ${styles.statusInProgress}`}>Опубликован</span>}
-                        {q.is_answered && <span className={`${styles.status} ${styles.statusCompleted}`}>Отвечен</span>}
-                      </div>
-                      <div className={styles.requestActions}>
-                        {editingQuestion !== q.id ? (
-                          <>
-                            {/* Отображаем ответ если он существует */}
-                            {q.product_answers && q.product_answers.length > 0 && (
-                              <div style={{
-                                width: '100%',
-                                marginTop: '12px',
-                                padding: '12px',
-                                background: 'rgba(13, 148, 136, 0.08)',
-                                borderLeft: '3px solid #0d9488',
-                                borderRadius: '0 8px 8px 0'
-                              }}>
-                                <div style={{
-                                  fontWeight: 600,
-                                  color: '#0d9488',
-                                  fontSize: '13px',
-                                  marginBottom: '6px'
-                                }}>
-                                  Ответ от {q.product_answers[0].responder_name}:
-                                </div>
-                                <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-primary)' }}>
-                                  {q.product_answers[0].answer_text}
-                                </p>
-                              </div>
-                            )}
-
-                            <button
-                              className={styles.editBtn}
-                              onClick={() => {
-                                setEditingQuestion(q.id);
-                                // Если есть уже ответ - подставляем его в поле ввода
-                                if (q.product_answers && q.product_answers.length > 0) {
-                                  setAnswerText(q.product_answers[0].answer_text);
-                                } else {
-                                  setAnswerText('');
-                                }
-                              }}
-                            >
-                              {q.product_answers && q.product_answers.length > 0 ? 'Изменить ответ' : 'Ответить'}
-                            </button>
-                            {!q.is_published && (
-                              <button
-                                className={styles.editBtn}
-                                onClick={async () => {
-                                  await supabase
-                                    .from('product_questions')
-                                    .update({ is_published: true })
-                                    .eq('id', q.id);
-                                  fetchData();
-                                  showSuccess('Вопрос опубликован!');
-                                }}
-                              >
-                                Опубликовать
-                              </button>
-                            )}
-                            <button
-                              className={styles.deleteBtn}
-                              onClick={() => openConfirmModal('delete_question', q)}
-                            >
-                              Удалить
-                            </button>
-                          </>
-                        ) : null}
-                      </div>
-                    </div>
-
-                    {editingQuestion === q.id && (
-                      <div className={styles.editForm}>
-                        <textarea
-                          value={answerText}
-                          onChange={(e) => setAnswerText(e.target.value.slice(0, 500))}
-                          placeholder="Ответ на вопрос..."
-                          rows={3}
-                          maxLength={500}
-                        />
-                        <div className={styles.editActions}>
-                          <button onClick={async () => {
-                            try {
-                              const { data: { session } } = await supabase.auth.getSession();
-
-                              const response = await fetch('https://mutebkvjowivxupnexzp.supabase.co/functions/v1/submit-answer', {
-                                method: 'POST',
-                                headers: {
-                                  'Authorization': `Bearer ${session.access_token}`,
-                                  'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({
-                                  questionId: q.id,
-                                  answerText: answerText,
-                                  responderId: user.id,
-                                  responderName: userProfile.name
-                                })
-                              });
-
-                              if (!response.ok) {
-                                const error = await response.json();
-                                throw new Error(error.error || 'Ошибка сервера');
-                              }
-
-                              setEditingQuestion(null);
-                              setAnswerText('');
-                              fetchData();
-                              showSuccess('✅ Ответ сохранен и опубликован!');
-                            } catch (error) {
-                              console.error('Ошибка отправки ответа:', error);
-                              alert(`Ошибка: ${error.message}`);
-                            }
-                          }}>Отправить ответ</button>
-                          <button onClick={() => setEditingQuestion(null)}>Отмена</button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-        </div>
-
-      )}
-
-      {activeTab === 'categories' && (
-        <div className={styles.categoriesSection}>
-          <div className={styles.filtersBar}>
-            <div className={styles.searchWrapper}>
-              <img src="/images/ico/icoLupa.png" alt="Поиск" className={styles.searchIcon} />
-              <input
-                type="text"
-                placeholder="Поиск категорий..."
-                value={categorySearch}
-                onChange={(e) => setCategorySearch(e.target.value)}
-                className={styles.searchInput}
-              />
-            </div>
-            <span className={styles.searchCount}>Всего: {processedCategories.length}</span>
             <button
-              className={styles.addBtn}
-              onClick={() => {
-                setEditingCategory(null);
-                setCategoryForm({ name: '', description: '' });
-                setShowCategoryForm(true);
-              }}
+              onClick={() => setGlobalViewMode(globalViewMode === 'list' ? 'grid' : 'list')}
+              className={styles.viewToggleBtn}
             >
-              + Добавить категорию
+              <img src="/images/ico/icoMain.png" alt="Вид" className={styles.viewIcon} />
             </button>
           </div>
 
-          {showCategoryForm && (
-            <form className={styles.categoryForm} onSubmit={editingCategory ? handleUpdateCategory : handleCreateCategory}>
-              <h3>{editingCategory ? 'Редактирование категории' : 'Новая категория'}</h3>
-              <input
-                type="text"
-                placeholder="Название категории"
-                value={categoryForm.name}
-                onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
-                required
-              />
-              <textarea
-                placeholder="Описание (необязательно)"
-                value={categoryForm.description}
-                onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
-                rows={2}
-              />
-              <div className={styles.formActions}>
-                <button type="submit" className={styles.submitProductBtn}>
-                  {editingCategory ? 'Сохранить' : 'Создать'}
-                </button>
-                <button type="button" className={styles.cancelBtn} onClick={() => setShowCategoryForm(false)}>
-                  Отмена
-                </button>
-              </div>
-            </form>
-          )}
-
-          <div className={styles.categoriesList}>
-            {processedCategories.map(cat => (
-              <div key={cat.id} className={styles.categoryCard}>
-                <div className={styles.categoryInfo}>
-                  <h3>{cat.name}</h3>
-                  {cat.description && (
-                    <>
-                      <p className={styles.truncatedText}>
-                        {expandedDescriptions[`category_${cat.id}`]
-                          ? cat.description
-                          : (cat.description.length > 100
-                            ? cat.description.substring(0, 100) + '...'
-                            : cat.description)}
-                      </p>
-                      {cat.description.length > 100 && (
-                        <button
-                          className={styles.expandBtn}
-                          onClick={() => setExpandedDescriptions(prev => ({
-                            ...prev,
-                            [`category_${cat.id}`]: !prev[`category_${cat.id}`]
-                          }))}
-                        >
-                          {expandedDescriptions[`category_${cat.id}`] ? 'Свернуть' : 'Читать далее...'}
-                        </button>
-                      )}
-                    </>
-                  )}
-                  <span className={styles.categoryProductsCount}>
-                    Товаров: {products.filter(p => p.category_id === cat.id).length}
-                  </span>
-                </div>
-                <div className={styles.categoryActions}>
-                  <button
-                    className={styles.editProductBtn}
-                    onClick={() => {
-                      setEditingCategory(cat.id);
-                      setCategoryForm({ name: cat.name, description: cat.description || '' });
-                      setShowCategoryForm(true);
-                    }}
-                  >
-                    Редактировать
-                  </button>
-                  <button
-                    className={styles.deleteBtn}
-                    onClick={() => openConfirmModal('delete_category', cat)}
-                  >
-                    Удалить
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+          <QuestionsSection
+            questions={questions}
+            products={products}
+            questionSearch={questionSearch}
+            setQuestionSearch={setQuestionSearch}
+            questionStatusFilter={questionStatusFilter}
+            setQuestionStatusFilter={setQuestionStatusFilter}
+            editingQuestion={editingQuestion}
+            setEditingQuestion={setEditingQuestion}
+            answerText={answerText}
+            setAnswerText={setAnswerText}
+            hoveredProduct={hoveredProduct}
+            setHoveredProduct={setHoveredProduct}
+            openConfirmModal={openConfirmModal}
+            fetchData={fetchData}
+            showSuccess={showSuccess}
+            user={user}
+            userProfile={userProfile}
+            globalViewMode={globalViewMode}
+            setGlobalViewMode={setGlobalViewMode}
+          />
         </div>
       )}
 
@@ -1806,6 +1316,7 @@ const Admin = () => {
             confirmModal.action === 'cancel_edit_product' ? 'Отменить редактирование товара? Все несохраненные изменения будут потеряны.' :
             confirmModal.action === 'cancel_edit_user' ? 'Отменить редактирование пользователя? Все несохраненные изменения будут потеряны.' :
             confirmModal.action === 'delete_category' ? `Вы действительно хотите удалить категорию "${confirmModal.item.name}"? Товары в этой категории останутся без категории.` :
+            confirmModal.action === 'delete_answer' ? 'Вы действительно хотите удалить ответ у этого вопроса?' :
             ''
           }
           confirmText="Подтвердить"
@@ -1813,60 +1324,19 @@ const Admin = () => {
       )}
 
       {/* Модальное окно для обрезки изображения */}
-      {showCropper && (
-        <div className={styles.cropperOverlay} onMouseMove={handleCropMouseMove} onMouseUp={handleCropMouseUp} onMouseLeave={handleCropMouseUp}>
-          <div className={styles.cropperContainer}>
-            <h3 className={styles.cropperTitle}>Выберите область для фотографии</h3>
-            <p className={styles.cropperHint}>Фотографии всех товаров будут одинакового размера 600×800 px</p>
-
-            <div className={styles.cropperImageWrapper}>
-              <img
-                src={originalImage}
-                alt="Original"
-                className={styles.cropperImage}
-                onLoad={handleCropperImageLoad}
-                draggable={false}
-              />
-
-              {/* Рамка выбора области */}
-              <div
-                className={styles.cropSelection}
-                style={{
-                  left: cropSelection.x,
-                  top: cropSelection.y,
-                  width: cropSelection.width,
-                  height: cropSelection.height
-                }}
-                onMouseDown={handleCropMouseDown}
-              >
-                <div className={`${styles.cropResizeHandle} ${styles.cropHandleTL}`} data-corner="tl" onMouseDown={handleCropMouseDown}></div>
-                <div className={`${styles.cropResizeHandle} ${styles.cropHandleTR}`} data-corner="tr" onMouseDown={handleCropMouseDown}></div>
-                <div className={`${styles.cropResizeHandle} ${styles.cropHandleBL}`} data-corner="bl" onMouseDown={handleCropMouseDown}></div>
-                <div className={`${styles.cropResizeHandle} ${styles.cropHandleBR}`} data-corner="br" onMouseDown={handleCropMouseDown}></div>
-              </div>
-
-              {/* Затемнение вокруг выбранной области */}
-              <div className={styles.cropOverlay} style={{
-                clipPath: `polygon(
-                  0% 0%, 0% 100%, 
-                  ${cropSelection.x}px 100%, ${cropSelection.x}px ${cropSelection.y}px, 
-                  ${cropSelection.x + cropSelection.width}px ${cropSelection.y}px, ${cropSelection.x + cropSelection.width}px ${cropSelection.y + cropSelection.height}px, 
-                  ${cropSelection.x}px ${cropSelection.y + cropSelection.height}px, ${cropSelection.x}px 100%, 
-                  100% 100%, 100% 0%
-                )`
-              }}></div>
-            </div>
-
-            <div className={styles.cropperActions}>
-              <button className={styles.cropperCancelBtn} onClick={handleCropCancel}>Отмена</button>
-              <button className={styles.cropperConfirmBtn} onClick={handleCropConfirm} disabled={uploading}>
-                {uploading ? 'Обработка...' : 'Использовать эту область'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      <ImageCropper
+        showCropper={showCropper}
+        originalImage={originalImage}
+        cropSelection={cropSelection}
+        imageDimensions={imageDimensions}
+        uploading={uploading}
+        handleCropCancel={handleCropCancel}
+        handleCropConfirm={handleCropConfirm}
+        handleCropMouseDown={handleCropMouseDown}
+        handleCropMouseMove={handleCropMouseMove}
+        handleCropMouseUp={handleCropMouseUp}
+        handleCropperImageLoad={handleCropperImageLoad}
+      />
     </div>
   );
 };

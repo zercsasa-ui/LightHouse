@@ -4,14 +4,17 @@
   right: -50px;
   transform: translateY(-50%);
   z-index: 100;
-  transition: right 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 50%;
+  transition: all 0.4s, right 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .pickerContainer.visible {
   right: -20px;
+  
 }
 .pickerContainer.visible:hover{
-    right: 0px;
+    opacity: 100%;
+  right: 0px;
 }
 
 
@@ -34,6 +37,52 @@
 .toggleBtn:hover {
   transform: scale(1.1);
 
+}
+
+.rainToggleBtn {
+  position: fixed;
+  top: calc(22% + 56px);
+  right: 4px;
+  transform: translateY(-50%);
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--bg-primary);
+  border: 2px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-color) 0 4px 16px;
+  padding: 0;
+  overflow: hidden;
+  z-index: 99;
+  right: -21px;
+  opacity: 50%;
+  transition: all 0.4s, right 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.rainToggleBtn:hover {
+  opacity: 100%;
+    right: 0px;
+
+}
+
+.rainToggleIcon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+/* Адаптация иконки для светлой темы */
+html[data-theme="light"] .rainToggleIcon {
+  filter: brightness(0) saturate(100%);
+}
+
+/* Адаптация иконки для темной темы */
+html[data-theme="dark"] .rainToggleIcon {
+  filter: invert(1) brightness(1.2);
 }
 
 .pickerPanel {
@@ -123,6 +172,7 @@
   border-color: #dc2626;
   color: #dc2626;
 }
+
 
 @media (max-width: 720px) {
   .pickerContainer {

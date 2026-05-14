@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import styles from './ThemeColorPicker.module.css';
+import RainEffect from './RainEffect';
 
 const ThemeColorPicker = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isDarkTheme, setIsDarkTheme] = useState(false);
   const [baseColor, setBaseColor] = useState('#0f172a');
+  const [isRainActive, setIsRainActive] = useState(() => {
+    return localStorage.getItem('rainEnabled') === 'true';
+  });
   const pickerRef = useRef(null);
 
   const adjustColor = (color, amount) => {
@@ -113,40 +117,59 @@ const ThemeColorPicker = () => {
     localStorage.removeItem('theme-dark-color');
   };
 
+  const toggleRain = () => {
+    const newState = !isRainActive;
+    setIsRainActive(newState);
+    localStorage.setItem('rainEnabled', newState.toString());
+  };
+
   return (
-    <div ref={pickerRef} className={`${styles.pickerContainer} ${isOpen ? styles.open : ''} ${isDarkTheme ? styles.visible : ''}`}>
+    <>
+      <div ref={pickerRef} className={`${styles.pickerContainer} ${isOpen ? styles.open : ''} ${isDarkTheme ? styles.visible : ''}`}>
+        <button
+          className={styles.toggleBtn}
+          onClick={() => setIsOpen(!isOpen)}
+          title="Настроить цвет темы"
+        >
+          🎨
+        </button>
+
+        <div className={styles.pickerPanel}>
+          <h3 className={styles.title}>Цвет темной темы</h3>
+
+          <div className={styles.colorRow}>
+            <input
+              type="color"
+              value={baseColor}
+              onChange={handleColorChange}
+              className={styles.colorInput}
+            />
+            <span className={styles.colorCode}>{baseColor}</span>
+          </div>
+
+          <div className={styles.previewRow}>
+            <div className={styles.previewItem} style={{ background: baseColor }}>Основной</div>
+            <div className={styles.previewItem} style={{ background: adjustColor(baseColor, 15) }}>Вторичный</div>
+            <div className={styles.previewItem} style={{ background: adjustColor(baseColor, 30) }}>Третичный</div>
+          </div>
+
+          <button className={styles.resetBtn} onClick={resetToDefault}>
+            Сбросить на стандарт
+          </button>
+
+        </div>
+      </div>
+
       <button
-        className={styles.toggleBtn}
-        onClick={() => setIsOpen(!isOpen)}
-        title="Настроить цвет темы"
+        className={styles.rainToggleBtn}
+        onClick={toggleRain}
+        title="Включить/выключить дождь"
       >
-        🎨
+        <img src="/images/ico/icoRain.png" alt="Rain" className={styles.rainToggleIcon} />
       </button>
 
-      <div className={styles.pickerPanel}>
-        <h3 className={styles.title}>Цвет темной темы</h3>
-
-        <div className={styles.colorRow}>
-          <input
-            type="color"
-            value={baseColor}
-            onChange={handleColorChange}
-            className={styles.colorInput}
-          />
-          <span className={styles.colorCode}>{baseColor}</span>
-        </div>
-
-        <div className={styles.previewRow}>
-          <div className={styles.previewItem} style={{ background: baseColor }}>Основной</div>
-          <div className={styles.previewItem} style={{ background: adjustColor(baseColor, 15) }}>Вторичный</div>
-          <div className={styles.previewItem} style={{ background: adjustColor(baseColor, 30) }}>Третичный</div>
-        </div>
-
-        <button className={styles.resetBtn} onClick={resetToDefault}>
-          Сбросить на стандарт
-        </button>
-      </div>
-    </div>
+      <RainEffect isActive={isRainActive} />
+    </>
   );
 };
 

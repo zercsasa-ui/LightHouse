@@ -1,11 +1,13 @@
 import { memo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
+import { useComparison } from '../context/ComparisonContext';
 import styles from '../pages/Catalog.module.css';
 
 //   Мемоизированная карточка товара - не перерисовывается при фильтрации
 const ProductCard = memo(({ product }) => {
   const navigate = useNavigate();
+  const { comparisonItems, addToComparison, removeFromComparison } = useComparison();
 
   //   Предзагрузка товара в кеш при наведении курсора
   const preloadProduct = useCallback(async () => {
@@ -22,11 +24,30 @@ const ProductCard = memo(({ product }) => {
     }
   }, [product.id]);
 
+  const isInComparison = comparisonItems.some(item => item.id === product.id);
+
+  const handleComparisonToggle = (e) => {
+    e.stopPropagation();
+    if (isInComparison) {
+      removeFromComparison(product.id);
+    } else {
+      addToComparison(product);
+    }
+  };
+
+  const handleCardClick = () => {
+    navigate(`/product/${product.id}`);
+  };
+
   return (
     <div
       className={styles.productCard}
+      onClick={handleCardClick}
       onMouseEnter={preloadProduct}
       onFocus={preloadProduct}
+      role="link"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter') handleCardClick(); }}
     >
       <div className={styles.imageContainer}>
         <img
@@ -48,6 +69,9 @@ const ProductCard = memo(({ product }) => {
             <span className={styles.ratingCount}>({product.rating_count})</span>
           </div>
         </div>
+        <div className={styles.categoryInfo}>
+          <span className={styles.productCategory}>{product.categories?.name || 'Без категории'}</span>
+        </div>
         <div className={styles.stockInfo}>
           {product.stock > 0 ? (
             <span className={styles.inStock}>В наличии: {product.stock} шт.</span>
@@ -55,10 +79,13 @@ const ProductCard = memo(({ product }) => {
             <span className={styles.outOfStock}>Нет в наличии</span>
           )}
         </div>
-        <div
-          className={styles.productClickArea}
-          onClick={() => navigate(`/product/${product.id}`)}
-        />
+        <button
+          className={`${styles.comparisonBtn} ${isInComparison ? styles.comparisonBtnActive : ''}`}
+          onClick={handleComparisonToggle}
+          title={isInComparison ? 'Удалить из сравнения' : 'Добавить к сравнению'}
+        >
+          {isInComparison ? '✓ В сравнении' : '⚖ Сравнить'}
+        </button>
       </div>
     </div>
   );

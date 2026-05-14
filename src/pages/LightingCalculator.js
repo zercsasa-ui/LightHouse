@@ -1,6 +1,8 @@
-  import React, { useState, useRef, useEffect, useCallback } from 'react';
-  import styles from './LightingCalculator.module.css';
-  import ConfirmModal from '../components/ConfirmModal';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import styles from './LightingCalculator.module.css';
+import ConfirmModal from '../components/ConfirmModal';
+import Toast from '../components/Toast';
 
   const TOOLS = {
     CURSOR: 'cursor',
@@ -10,10 +12,13 @@
   };
 
   const LAMP_TYPES = [
-    { id: 'led', name: 'LED', lmPerWatt: 90 },
-    { id: 'halogen', name: 'Галоген', lmPerWatt: 15 },
-    { id: 'fluorescent', name: 'Люминесцентная', lmPerWatt: 60 },
-    { id: 'incandescent', name: 'Накаливания', lmPerWatt: 10 }
+    { id: 'led', name: 'LED', lmPerWatt: 90, colorTemp: '2700-6500K', lifespan: 25000 },
+    { id: 'halogen', name: 'Галоген', lmPerWatt: 15, colorTemp: '2700-3000K', lifespan: 2000 },
+    { id: 'fluorescent', name: 'Люминесцентная', lmPerWatt: 60, colorTemp: '2700-6500K', lifespan: 10000 },
+    { id: 'incandescent', name: 'Накаливания', lmPerWatt: 10, colorTemp: '2700K', lifespan: 1000 },
+    { id: 'led_spot', name: 'LED прожектор', lmPerWatt: 85, colorTemp: '3000-6000K', lifespan: 30000 },
+    { id: 'led_linear', name: 'LED линейная', lmPerWatt: 100, colorTemp: '3000-6500K', lifespan: 35000 },
+    { id: 'hid', name: 'Газоразрядная', lmPerWatt: 80, colorTemp: '4000-6000K', lifespan: 15000 }
   ];
 
   const ROOM_TYPES = [
@@ -31,6 +36,7 @@
   ];
 
   const LightingCalculator = () => {
+    const navigate = useNavigate();
     const canvasRef = useRef(null);
     const [rooms, setRooms] = useState([
       { id: 1, x: 100, y: 100, width: 5, height: 4, ceilingHeight: 2.5, name: 'Гостиная' }
@@ -49,11 +55,68 @@
     const [showClearWiresModal, setShowClearWiresModal] = useState(false);
     const [showClearLampsModal, setShowClearLampsModal] = useState(false);
 
-    const [isLoaded, setIsLoaded] = useState(false);
-    const [tempDragObject, setTempDragObject] = useState(null);
-    const [wirePrice, setWirePrice] = useState(50);
-    const [lampPrice, setLampPrice] = useState(300);
-    const [electricityPrice, setElectricityPrice] = useState(5.5);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [tempDragObject, setTempDragObject] = useState(null);
+  const [wirePrice, setWirePrice] = useState(50);
+  const [lampPrice, setLampPrice] = useState(300);
+  const [electricityPrice, setElectricityPrice] = useState(5.5);
+  const [controlsCollapsed, setControlsCollapsed] = useState(false);
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [safetyFactor, setSafetyFactor] = useState(1.2); // Коэффициент запаса
+  const [toast, setToast] = useState(null);
+  const [zoom, setZoom] = useState(1); // Масштаб (1 = 100%)
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 }); // Смещение при панорамировании
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+
+  // Функция для показа уведомления
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
+  };
+
+  // Управление масштабом
+  const handleZoomIn = () => {
+    setZoom(prev => Math.min(prev + 0.25, 3)); // Максимум 3x
+  };
+
+  const handleZoomOut = () => {
+    setZoom(prev => Math.max(prev - 0.25, 0.5)); // Минимум 0.5x
+  };
+
+  const handleZoomReset = () => {
+    setZoom(1);
+    setPanOffset({ x: 0, y: 0 });
+  };
+
+  // Обработка колёсика мыши для зума
+  const handleWheel = (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setZoom(prev => Math.max(0.5, Math.min(prev + delta, 3)));
+  };
+
+  // Начало панорамирования (средняя кнопка мыши или пробел+левая кнопка)
+  const handlePanStart = (e) => {
+    if (e.button === 1 || (e.button === 0 && e.shiftKey)) { // Средняя кнопка или Shift+левая
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+    }
+  };
+
+  // Перемещение при панорамировании
+  const handlePanMove = (e) => {
+    if (isPanning) {
+      setPanOffset({
+        x: e.clientX - panStart.x,
+        y: e.clientY - panStart.y
+      });
+    }
+  };
+
+  // Конец панорамирования
+  const handlePanEnd = () => {
+    setIsPanning(false);
+  };
 
     // Загрузка данных из localStorage при инициализации
     useEffect(() => {
@@ -122,10 +185,7 @@
       return false;
     };
 
-    const calculateLampRadius = (lamp) => {
-      const angleRad = (lamp.angle / 2) * Math.PI / 180;
-      return lamp.height * Math.tan(angleRad);
-    };
+
 
     const calculateTotalLighting = useCallback(() => {
       let totalArea = 0;
@@ -165,6 +225,136 @@
       return totalLength.toFixed(2);
     }, [wires, scale]);
 
+    // Функция для расчёта освещённости в точке от всех ламп
+    const calculateLuxAtPoint = useCallback((px, py) => {
+      let totalLux = 0;
+      lamps.forEach(lamp => {
+        // Расстояние в метрах между точкой и лампой
+        const dxMeters = (px - lamp.x) / scale;
+        const dyMeters = (py - lamp.y) / scale;
+        const distanceM = Math.sqrt(dxMeters * dxMeters + dyMeters * dyMeters);
+        
+        if (distanceM === 0) {
+          // Прямо под лампой - максимальная освещённость
+          totalLux += lamp.lumens / (lamp.height * lamp.height);
+          return;
+        }
+        
+        // Расчёт освещённости с учётом расстояния и угла
+        const angleRad = (lamp.angle / 2) * Math.PI / 180;
+        const maxRadiusM = lamp.height * Math.tan(angleRad);
+        
+        if (distanceM <= maxRadiusM * 1.5) { // Немного расширяем зону влияния
+          // Закон обратных квадратов: освещённость падает пропорционально 1/r²
+          // Плюс учитываем угол падения света
+          const distanceToLamp = Math.sqrt(distanceM * distanceM + lamp.height * lamp.height);
+          const incidenceAngle = Math.atan2(lamp.height, distanceM);
+          const cosIncidence = Math.cos(incidenceAngle);
+          
+          // Базовая освещённость с учётом расстояния до лампы (по гипотенузе)
+          let lux = lamp.lumens / (distanceToLamp * distanceToLamp);
+          
+          // Учитываем угол падения (чем ближе к центру, тем ярче)
+          lux *= cosIncidence;
+          
+          // Плавное затухание к краям зоны
+          const edgeFactor = Math.max(0, 1 - (distanceM / (maxRadiusM * 1.5)));
+          lux *= edgeFactor;
+          
+          totalLux += lux;
+        }
+      });
+      return totalLux;
+    }, [lamps, scale]);
+
+    // Автоматический расчёт необходимого количества ламп
+    const calculateRequiredLamps = useCallback(() => {
+      if (!selectedRoom || !selectedRoom.type) return null;
+      
+      const roomType = ROOM_TYPES.find(t => t.id === selectedRoom.type);
+      if (!roomType) return null;
+      
+      const roomArea = selectedRoom.width * selectedRoom.height;
+      const requiredLumens = roomType.requiredLux * roomArea * safetyFactor;
+      
+      // Берём среднюю лампу для расчёта
+      const avgLampLumens = 900; // Средняя LED лампа 10Вт
+      const requiredLamps = Math.ceil(requiredLumens / avgLampLumens);
+      
+      return {
+        requiredLumens: Math.round(requiredLumens),
+        requiredLamps,
+        avgLampLumens,
+        roomType
+      };
+    }, [selectedRoom, safetyFactor]);
+
+    // Экспорт проекта в JSON
+    const exportProject = () => {
+      const projectData = {
+        version: '1.0',
+        timestamp: Date.now(),
+        rooms,
+        wires,
+        lamps,
+        settings: {
+          wirePrice,
+          lampPrice,
+          electricityPrice,
+          safetyFactor
+        }
+      };
+      
+      const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `lighting-project-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      showToast('Проект успешно экспортирован!', 'success');
+    };
+
+    // Импорт проекта из JSON
+    const importProject = (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const projectData = JSON.parse(e.target.result);
+          
+          if (projectData.rooms && projectData.wires && projectData.lamps) {
+            setRooms(projectData.rooms);
+            setWires(projectData.wires);
+            setLamps(projectData.lamps);
+            
+            if (projectData.settings) {
+              if (projectData.settings.wirePrice) setWirePrice(projectData.settings.wirePrice);
+              if (projectData.settings.lampPrice) setLampPrice(projectData.settings.lampPrice);
+              if (projectData.settings.electricityPrice) setElectricityPrice(projectData.settings.electricityPrice);
+              if (projectData.settings.safetyFactor) setSafetyFactor(projectData.settings.safetyFactor);
+            }
+            
+            setHistory([]);
+            showToast('Проект успешно загружен!', 'success');
+          } else {
+            showToast('Неверный формат файла', 'error');
+          }
+        } catch (error) {
+          console.error('Ошибка при загрузке проекта:', error);
+          showToast('Ошибка при загрузке проекта', 'error');
+        }
+      };
+      reader.readAsText(file);
+      // Сбрасываем value input, чтобы можно было загрузить тот же файл снова
+      event.target.value = '';
+    };
+
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -173,70 +363,175 @@
       const rect = canvas.getBoundingClientRect();
       const isDarkTheme = document.documentElement.getAttribute('data-theme') === 'dark';
 
-      canvas.width = rect.width;
-      canvas.height = rect.height;
+      // Устанавливаем размер canvas с учётом зума для чёткости отрисовки
+      const dpr = window.devicePixelRatio || 1;
+      const displayWidth = rect.width;
+      const displayHeight = rect.height;
+      
+      canvas.width = displayWidth * dpr;
+      canvas.height = displayHeight * dpr;
+      canvas.style.width = `${displayWidth}px`;
+      canvas.style.height = `${displayHeight}px`;
+      
+      ctx.scale(dpr, dpr);
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, displayWidth, displayHeight);
+
+      // Сохраняем контекст и применяем трансформации для зума и панорамирования
+      ctx.save();
+      // Применяем зум из центра экрана
+      ctx.translate(displayWidth / 2, displayHeight / 2);
+      ctx.scale(zoom, zoom);
+      ctx.translate(-displayWidth / 2 + panOffset.x / zoom, -displayHeight / 2 + panOffset.y / zoom);
 
       // Отрисовка сетки
       ctx.strokeStyle = isDarkTheme ? '#2d3748' : '#e0e0e0';
       ctx.lineWidth = 1;
 
-      for (let x = 0; x <= canvas.width; x += scale) {
+      for (let x = 0; x <= displayWidth; x += scale) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
+        ctx.lineTo(x, displayHeight);
         ctx.stroke();
       }
 
-      for (let y = 0; y <= canvas.height; y += scale) {
+      for (let y = 0; y <= displayHeight; y += scale) {
         ctx.beginPath();
         ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
+        ctx.lineTo(displayWidth, y);
         ctx.stroke();
       }
 
-      // Отрисовка зон освещения лампочек
-      lamps.forEach(lamp => {
-        const radius = calculateLampRadius(lamp) * scale;
+      // Отрисовка тепловой карты освещённости
+      if (showHeatmap && lamps.length > 0) {
+        const gridSize = 10; // Размер ячейки сетки для тепловой карты
+        const maxLux = 500; // Максимальное значение для цветовой шкалы
+        
+        for (let x = 0; x < displayWidth; x += gridSize) {
+          for (let y = 0; y < displayHeight; y += gridSize) {
+            const lux = calculateLuxAtPoint(x, y);
+            const normalizedLux = Math.min(lux / maxLux, 1);
+            
+            // Цветовая шкала от синего (низкая) через зелёный к красному (высокая)
+            let r, g, b, alpha;
+            if (normalizedLux < 0.3) {
+              // Синий -> Зелёный
+              const t = normalizedLux / 0.3;
+              r = Math.round(30 * t);
+              g = Math.round(144 * t + 30 * (1 - t));
+              b = Math.round(255 * (1 - t));
+              alpha = 0.3 + 0.2 * t;
+            } else if (normalizedLux < 0.6) {
+              // Зелёный -> Жёлтый
+              const t = (normalizedLux - 0.3) / 0.3;
+              r = Math.round(255 * t + 30 * (1 - t));
+              g = 144 + Math.round(111 * t);
+              b = Math.round(255 * (1 - t) * 0.3);
+              alpha = 0.4 + 0.1 * t;
+            } else {
+              // Жёлтый -> Красный
+              const t = (normalizedLux - 0.6) / 0.4;
+              r = 255;
+              g = Math.round(255 * (1 - t) + 0 * t);
+              b = 80 * (1 - t);
+              alpha = 0.5;
+            }
+            
+            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            ctx.fillRect(x, y, gridSize, gridSize);
+          }
+        }
+        
+        // Легенда тепловой карты (рисуем без трансформации зума и панорамирования)
+        ctx.restore();
+        const legendWidth = 200;
+        const legendHeight = 20;
+        const legendX = displayWidth - legendWidth - 20;
+        const legendY = 20;
+        
+        const gradient = ctx.createLinearGradient(legendX, legendY, legendX + legendWidth, legendY);
+        gradient.addColorStop(0, 'rgba(30, 144, 255, 0.8)');
+        gradient.addColorStop(0.3, 'rgba(34, 139, 34, 0.8)');
+        gradient.addColorStop(0.6, 'rgba(255, 255, 0, 0.8)');
+        gradient.addColorStop(1, 'rgba(255, 69, 0, 0.8)');
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(legendX, legendY, legendWidth, legendHeight);
+        
+        ctx.fillStyle = isDarkTheme ? '#cbd5e1' : '#2c3e50';
+        ctx.font = '10px sans-serif';
+        ctx.fillText('0', legendX, legendY + legendHeight + 12);
+        ctx.fillText(`${maxLux}+ Люкс`, legendX + legendWidth - 60, legendY + legendHeight + 12);
+        
+        // Снова применяем трансформацию для отрисовки объектов
+        ctx.save();
+        ctx.translate(displayWidth / 2, displayHeight / 2);
+        ctx.scale(zoom, zoom);
+        ctx.translate(-displayWidth / 2 + panOffset.x / zoom, -displayHeight / 2 + panOffset.y / zoom);
+      }
 
-        // Зона отлично освещена (>300 Люкс)
-        ctx.beginPath();
-        ctx.arc(lamp.x, lamp.y, radius * 0.4, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(76, 175, 80, 0.35)';
-        ctx.fill();
+      // Отрисовка зон освещения лампочек (показываем только если тепловая карта выключена)
+      if (!showHeatmap) {
+        lamps.forEach(lamp => {
+          // Расчёт реалистичных радиусов зон на основе физики освещения
+          // Освещённость E = I / r², где I - сила света (примерно lumens / 4π для изотропного источника)
+          // Для направленного света учитываем угол рассеивания
+          const lumens = lamp.lumens;
+          const angleRad = (lamp.angle / 2) * Math.PI / 180;
+          const solidAngle = 2 * Math.PI * (1 - Math.cos(angleRad)); // Телесный угол
+          const avgIntensity = lumens / solidAngle; // Средняя сила света в пределах угла
+          
+          // Радиусы для разных уровней освещённости (в метрах)
+          // E = I / r² => r = sqrt(I / E)
+          const radiusGoodM = Math.sqrt(avgIntensity / 300); // >300 Люкс (отлично)
+          const radiusNormalM = Math.sqrt(avgIntensity / 150); // 150-300 Люкс (нормально)
+          const radiusWeakM = Math.sqrt(avgIntensity / 50); // 50-150 Люкс (слабо)
+          
+          // Ограничиваем максимальный радиус физической зоной освещения лампы
+          const maxRadiusM = lamp.height * Math.tan(angleRad);
+          
+          const radiusGood = Math.min(radiusGoodM, maxRadiusM) * scale;
+          const radiusNormal = Math.min(radiusNormalM, maxRadiusM) * scale;
+          const radiusWeak = Math.min(radiusWeakM, maxRadiusM) * scale;
 
-        // Зона нормально освещена (150-300 Люкс)
-        ctx.beginPath();
-        ctx.arc(lamp.x, lamp.y, radius * 0.7, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255, 235, 59, 0.25)';
-        ctx.fill();
+          // Зона отлично освещена (>300 Люкс)
+          ctx.beginPath();
+          ctx.arc(lamp.x, lamp.y, radiusGood, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(76, 175, 80, 0.3)';
+          ctx.fill();
 
-        // Зона слабое освещение (<150 Люкс)
-        ctx.beginPath();
-        ctx.arc(lamp.x, lamp.y, radius, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(244, 67, 54, 0.15)';
-        ctx.fill();
+          // Зона нормально освещена (150-300 Люкс)
+          ctx.beginPath();
+          ctx.arc(lamp.x, lamp.y, radiusNormal, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255, 235, 59, 0.2)';
+          ctx.fill();
 
-        // Контуры зон
-        ctx.beginPath();
-        ctx.arc(lamp.x, lamp.y, radius * 0.4, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(76, 175, 80, 0.6)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
+          // Зона слабое освещение (50-150 Люкс)
+          ctx.beginPath();
+          ctx.arc(lamp.x, lamp.y, radiusWeak, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(244, 67, 54, 0.12)';
+          ctx.fill();
 
-        ctx.beginPath();
-        ctx.arc(lamp.x, lamp.y, radius * 0.7, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(255, 235, 59, 0.6)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
+          // Контуры зон
+          ctx.beginPath();
+          ctx.arc(lamp.x, lamp.y, radiusGood, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(76, 175, 80, 0.5)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
 
-        ctx.beginPath();
-        ctx.arc(lamp.x, lamp.y, radius, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(244, 67, 54, 0.6)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      });
+          ctx.beginPath();
+          ctx.arc(lamp.x, lamp.y, radiusNormal, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(255, 235, 59, 0.5)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(lamp.x, lamp.y, radiusWeak, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(244, 67, 54, 0.4)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        });
+      }
 
       // Отрисовка комнат
       rooms.forEach(room => {
@@ -306,15 +601,29 @@
         ctx.stroke();
       }
 
-    }, [rooms, wires, lamps, currentWire, selectedRoomId, selectedLampId, scale]);
+      ctx.restore();
 
-    const getCanvasCoords = (e) => {
+    }, [rooms, wires, lamps, currentWire, selectedRoomId, selectedLampId, scale, panOffset, showHeatmap, zoom, calculateLuxAtPoint]);
+
+    const getCoords = (e) => {
+      const clientX = e.clientX ?? e.touches?.[0]?.clientX ?? e.changedTouches?.[0]?.clientX;
+      const clientY = e.clientY ?? e.touches?.[0]?.clientY ?? e.changedTouches?.[0]?.clientY;
       const canvas = canvasRef.current;
+      if (!canvas) return { x: 0, y: 0 };
+      
       const rect = canvas.getBoundingClientRect();
-      return {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top
-      };
+      const displayWidth = rect.width;
+      const displayHeight = rect.height;
+      
+      // Преобразуем экранные координаты в координаты canvas с учётом zoom и pan
+      // Обратное преобразование трансформации canvas:
+      // 1. Вычитаем смещение canvas на странице
+      // 2. Учитываем зум (делим на zoom)
+      // 3. Учитываем панорамирование
+      const x = ((clientX - rect.left) - displayWidth / 2) / zoom + displayWidth / 2 - panOffset.x / zoom;
+      const y = ((clientY - rect.top) - displayHeight / 2) / zoom + displayHeight / 2 - panOffset.y / zoom;
+      
+      return { x, y };
     };
 
     const findRoomAtPosition = (x, y) => {
@@ -337,8 +646,13 @@
       return null;
     };
 
-    const handleMouseDown = (e) => {
-      const coords = getCanvasCoords(e);
+    const handlePointerDown = (e) => {
+      e.preventDefault();
+      // Prevent touch scrolling on mobile devices
+      if (e.touches && e.touches.length > 0) {
+        e.stopPropagation();
+      }
+      const coords = getCoords(e);
 
       if (activeTool === TOOLS.CURSOR) {
         const lamp = findLampAtPosition(coords.x, coords.y);
@@ -394,7 +708,8 @@
           width: 4,
           height: 3,
           ceilingHeight: 2.7,
-          name: `Комната ${rooms.length + 1}`
+          name: `Комната ${rooms.length + 1}`,
+          type: 'living' // Добавляем тип помещения по умолчанию
         };
 
         if (!checkCollision(newRoom)) {
@@ -406,8 +721,13 @@
       }
     };
 
-    const handleMouseMove = (e) => {
-      const coords = getCanvasCoords(e);
+    const handlePointerMove = (e) => {
+      e.preventDefault();
+      // Prevent touch scrolling on mobile devices
+      if (e.touches && e.touches.length > 0) {
+        e.stopPropagation();
+      }
+      const coords = getCoords(e);
 
       if (isDragging) {
         if (selectedRoomId) {
@@ -445,7 +765,7 @@
       }
     };
 
-    const handleMouseUp = () => {
+    const handlePointerUp = () => {
       if (currentWire.length > 1) {
         const newWire = {
           points: currentWire,
@@ -613,10 +933,52 @@
             <div className={styles.legendItemSmall} style={{ background: 'rgba(244, 67, 54, 0.15)' }}>🔴 Слабо {'<'}150 Люкс</div>
           </div>
 
+          <button
+            className={`${styles.toolBtn} ${showHeatmap ? styles.activeTool : ''}`}
+            onClick={() => setShowHeatmap(!showHeatmap)}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <img className={styles.calcImg} src='/images/ico/icoTermo.png' alt="Тепловая карта"></img> Тепловая карта
+          </button>
+
+          <button
+            className={styles.toolBtn}
+            onClick={exportProject}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <img className={styles.calcImg} src='/images/ico/icoExp.png' alt='Экспорт'></img> Экспорт
+          </button>
+
+          <label className={styles.toolBtn} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+            <img className={styles.calcImg} src='/images/ico/icoImp.png' alt='Импорт'></img>  Импорт
+            <input
+              type="file"
+              accept=".json"
+              onChange={importProject}
+              style={{ display: 'none' }}
+            />
+          </label>
+
+          <button
+            className={styles.toolBtn}
+            onClick={() => navigate('/guide')}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', zIndex: '110' }}
+            title="Руководство по использованию"
+          >
+            <img className={styles.calcImg} src='/images/ico/icoHelpi.png' alt='Помощь'></img> Помощь
+          </button>
+
         </div>
 
         <div className={styles.grid}>
-          <div className={styles.controls}>
+          <div className={`${styles.controls} ${controlsCollapsed ? styles.collapsed : ''}`}>
+            <button
+              className={`${styles.controlsToggle} ${controlsCollapsed ? 'collapsed' : ''}`}
+              onClick={() => setControlsCollapsed(!controlsCollapsed)}
+              aria-label={controlsCollapsed ? 'Показать панели' : 'Скрыть панели'}
+            >
+              {controlsCollapsed ? '→ Показать панели' : '← Скрыть панели'}
+            </button>
             {selectedLamp ? (
               <div className={styles.card}>
                 <h3>Параметры лампы</h3>
@@ -633,6 +995,37 @@
                     ))}
                   </select>
                 </div>
+
+                {(() => {
+                  const lampTypeInfo = LAMP_TYPES.find(t => t.id === selectedLamp.type);
+                  if (!lampTypeInfo) return null;
+                  return (
+                    <div style={{ 
+                      marginTop: '8px', 
+                      padding: '8px', 
+                      borderRadius: '6px', 
+                      background: 'rgba(52, 152, 219, 0.1)', 
+                      border: '1px solid rgba(52, 152, 219, 0.3)',
+                      fontSize: '12px'
+                    }}>
+                      <div style={{ marginBottom: '4px' }}>
+                        <strong>📊 {lampTypeInfo.name}:</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                        <span>Светоотдача:</span>
+                        <strong>{lampTypeInfo.lmPerWatt} Лм/Вт</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                        <span>Цветовая температура:</span>
+                        <strong>{lampTypeInfo.colorTemp}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Срок службы:</span>
+                        <strong>~{lampTypeInfo.lifespan.toLocaleString()} ч</strong>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className={styles.inputGroup}>
                   <label>Мощность (Вт)</label>
@@ -772,7 +1165,7 @@
                         <div style={{ width: `${percent}%`, height: '100%', background: getStatusColor(), borderRadius: '3px' }}/>
                       </div>
                       <div style={{ fontSize: '12px', marginTop: '4px', opacity: 0.7 }}>
-                        {percent >= 100 ? '✅ Освещения достаточно' : percent >= 70 ? `⚠️ Недостаток ${roomType.requiredLux - currentLux} Люкс` : `🔴 Критически мало, нужно ещё ~${Math.ceil((roomType.requiredLux * roomArea - roomLumens) / 900)} ламп`}
+                        {percent >= 100 ? ' Освещения достаточно' : percent >= 70 ? `⚠️ Недостаток ${roomType.requiredLux - currentLux} Люкс` : `🔴 Критически мало, нужно ещё ~${Math.ceil((roomType.requiredLux * roomArea - roomLumens) / 900)} ламп`}
                       </div>
                     </div>
                   );
@@ -792,34 +1185,7 @@
             )}
 
 
-            <div className={styles.card}>
-              <h3>Общие расчёты</h3>
-              <div className={styles.resultItem}>
-                <span>Общая площадь:</span>
-                <strong>{lighting.totalArea} м²</strong>
-              </div>
-              <div className={styles.resultItem}>
-                <span>Общий объём:</span>
-                <strong>{lighting.totalVolume} м³</strong>
-              </div>
-              <div className={styles.resultItem}>
-                <span>Суммарный световой поток:</span>
-                <strong>{lighting.totalLumens} Люмен</strong>
-              </div>
-              <div className={styles.resultItem}>
-                <span>Суммарная мощность:</span>
-                <strong>{lighting.totalWattage} Вт</strong>
-              </div>
-              <div className={styles.resultItem}>
-                <span>Средняя освещённость:</span>
-                <strong>{lighting.averageLux} Люкс</strong>
-              </div>
-              <div className={styles.resultItem}>
-                <span>Количество лампочек:</span>
-                <strong>{lighting.lampsCount} шт</strong>
-              </div>
-            </div>
-
+      
             <div className={styles.card}>
               <h3>Проводка</h3>
               <div className={styles.resultItem}>
@@ -848,6 +1214,87 @@
                   Лампы
                 </button>
               </div>
+            </div>
+      <div className={styles.card}>
+              <h3>Общие расчёты</h3>
+              <div className={styles.resultItem}>
+                <span>Общая площадь:</span>
+                <strong>{lighting.totalArea} м²</strong>
+              </div>
+              <div className={styles.resultItem}>
+                <span>Общий объём:</span>
+                <strong>{lighting.totalVolume} м³</strong>
+              </div>
+              <div className={styles.resultItem}>
+                <span>Суммарный световой поток:</span>
+                <strong>{lighting.totalLumens} Люмен</strong>
+              </div>
+              <div className={styles.resultItem}>
+                <span>Суммарная мощность:</span>
+                <strong>{lighting.totalWattage} Вт</strong>
+              </div>
+              <div className={styles.resultItem}>
+                <span>Средняя освещённость:</span>
+                <strong>{lighting.averageLux} Люкс</strong>
+              </div>
+              <div className={styles.resultItem}>
+                <span>Количество лампочек:</span>
+                <strong>{lighting.lampsCount} шт</strong>
+              </div>
+            </div>
+
+            <div className={styles.card}>
+              <h3>Автоматический расчёт</h3>
+              
+              <div className={styles.inputGroup}>
+                <label>Коэффициент запаса</label>
+                <input
+                  type="number"
+                  value={safetyFactor}
+                  onChange={(e) => setSafetyFactor(parseFloat(e.target.value) || 1)}
+                  step="0.1"
+                  min="1"
+                  max="2"
+                />
+              </div>
+
+              {(() => {
+                const calcResult = calculateRequiredLamps();
+                if (!calcResult) return (
+                  <p className={styles.hint}>Выберите комнату с указанным типом помещения</p>
+                );
+                
+                const currentLampsInRoom = lamps.filter(l => 
+                  l.x >= selectedRoom.x && l.x <= selectedRoom.x + selectedRoom.width * scale &&
+                  l.y >= selectedRoom.y && l.y <= selectedRoom.y + selectedRoom.height * scale
+                ).length;
+                
+                return (
+                  <div style={{ marginTop: '8px' }}>
+                    <div className={styles.resultItem}>
+                      <span>Требуемый световой поток:</span>
+                      <strong>{calcResult.requiredLumens} Лм</strong>
+                    </div>
+                    <div className={styles.resultItem}>
+                      <span>Необходимо ламп (10Вт LED):</span>
+                      <strong>{calcResult.requiredLamps} шт</strong>
+                    </div>
+                    <div className={styles.resultItem}>
+                      <span>Текущее ламп в комнате:</span>
+                      <strong>{currentLampsInRoom} шт</strong>
+                    </div>
+                    <div className={styles.resultItem} style={{ 
+                      fontWeight: 'bold', 
+                      color: currentLampsInRoom >= calcResult.requiredLamps ? '#27ae60' : '#e74c3c',
+                      borderTop: '1px solid #e0e0e0',
+                      paddingTop: '6px'
+                    }}>
+                      <span>Разница:</span>
+                      <strong>{currentLampsInRoom >= calcResult.requiredLamps ? ' Норма' : `⚠️ Нужно ещё ${calcResult.requiredLamps - currentLampsInRoom}`}</strong>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className={styles.card}>
@@ -916,16 +1363,76 @@
           </div>
 
           <div className={styles.canvasWrapper}>
+            {/* Кнопки управления зумом */}
+            <div className={styles.zoomControls}>
+              <button 
+                className={styles.zoomBtn} 
+                onClick={handleZoomIn}
+                title="Приблизить"
+                disabled={zoom >= 3}
+              >
+                +
+              </button>
+              <button 
+                className={styles.zoomBtn} 
+                onClick={handleZoomReset}
+                title="Сбросить масштаб"
+              >
+                {Math.round(zoom * 100)}%
+              </button>
+              <button 
+                className={styles.zoomBtn} 
+                onClick={handleZoomOut}
+                title="Отдалить"
+                disabled={zoom <= 0.5}
+              >
+                −
+              </button>
+            </div>
+            
             <canvas
               ref={canvasRef}
               className={styles.canvas}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
+              onWheel={handleWheel}
+              onMouseDown={(e) => {
+                // Проверяем, начинается ли панорамирование (Shift+клик или средняя кнопка)
+                if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+                  handlePanStart(e);
+                } else {
+                  handlePointerDown(e);
+                }
+              }}
+              onMouseMove={(e) => {
+                if (isPanning) {
+                  handlePanMove(e);
+                } else {
+                  handlePointerMove(e);
+                }
+              }}
+              onMouseUp={(e) => {
+                if (isPanning) {
+                  handlePanEnd();
+                } else {
+                  handlePointerUp(e);
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (isPanning) {
+                  handlePanEnd();
+                } else {
+                  handlePointerUp(e);
+                }
+              }}
+              onTouchStart={handlePointerDown}
+              onTouchMove={handlePointerMove}
+              onTouchEnd={handlePointerUp}
+              onTouchCancel={handlePointerUp}
+              style={{
+                cursor: isPanning ? 'grabbing' : activeTool === TOOLS.CURSOR ? 'default' : 'crosshair'
+              }}
             />
             <div className={styles.scaleHint}>
-              Сетка: 1 метр | Активный инструмент: {activeTool}
+              Сетка: 1 метр | Инструмент: {activeTool} | Shift+drag для панорамирования
             </div>
           </div>
         </div>
@@ -949,6 +1456,15 @@
           message="Вы действительно хотите удалить все добавленные лампы? Это действие нельзя отменить."
           confirmText="Удалить лампы"
         />
+
+        {/* Уведомления (Toast) */}
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
+          />
+        )}
 
       </div>
     );

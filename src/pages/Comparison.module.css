@@ -1,0 +1,690 @@
+/* ===== Контейнер ===== */
+.comparisonContainer {
+  padding: 60px 50px;
+  background-color: var(--bg-primary);
+  min-height: 100vh;
+  animation: fadeIn 0.4s ease;
+}
+
+.title {
+  font-size: 2rem;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  margin-bottom: 40px;
+}
+
+.comparisonHeader {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 24px;
+}
+
+.clearAllBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background-color: transparent;
+  color: #ef4444;
+  border: 1.5px solid #fecaca;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.25s ease;
+}
+
+.clearAllBtn:hover {
+  background-color: #fef2f2;
+  border-color: #ef4444;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
+}
+
+/* ===== Загрузка (skeleton) ===== */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  gap: 24px;
+  color: var(--text-secondary);
+}
+
+.spinner {
+  width: 44px;
+  height: 44px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--accent-color);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.skeletonGrid {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  width: 100%;
+  max-width: 900px;
+}
+
+.skeletonCard {
+  flex: 1;
+  max-width: 280px;
+  background: var(--bg-secondary);
+  border-radius: 16px;
+  padding: 20px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.skeletonImage {
+  width: 100%;
+  height: 140px;
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.skeletonLine {
+  height: 14px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.skeletonLine:last-child {
+  width: 60%;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ===== Пустое состояние ===== */
+.emptyState {
+  text-align: center;
+  padding: 80px 20px;
+  color: var(--text-secondary);
+  max-width: 460px;
+  margin: 0 auto;
+}
+
+.emptyState h2 {
+  font-size: 1.5rem;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.emptyState p {
+  font-size: 1rem;
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+
+.backToCatalogBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 28px;
+  background: linear-gradient(135deg, var(--accent-color), var(--accent-hover));
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.15);
+}
+
+.backToCatalogBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.2);
+}
+
+/* ===== Таблица сравнения ===== */
+.comparisonTable {
+  background: var(--bg-secondary);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 8px 32px rgba(0, 0, 0, 0.06);
+  overflow-x: auto;
+}
+
+/* ===== Хэдер с карточками товаров ===== */
+.tableHeader {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.headerCell {
+  flex: 1;
+  min-width: 180px;
+}
+
+.headerCell:first-child {
+  min-width: 120px;
+}
+
+.productCard {
+  position: relative;
+  background: var(--bg-primary);
+  border-radius: 16px;
+  padding: 20px;
+  text-align: center;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.05),
+    0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: cardAppear 0.5s ease both;
+}
+
+.productCard:nth-child(1) { animation-delay: 0.1s; }
+.productCard:nth-child(2) { animation-delay: 0.2s; }
+.productCard:nth-child(3) { animation-delay: 0.3s; }
+
+.productCard:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.1),
+    0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+@keyframes cardAppear {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.bestBadge {
+  position: absolute;
+  top: -10px;
+  right: -8px;
+  background: linear-gradient(135deg, #059669, #10b981);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 20px;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3);
+  animation: badgePulse 2s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+  0%, 100% { box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3); }
+  50% { box-shadow: 0 4px 16px rgba(5, 150, 105, 0.5); }
+}
+
+.productImageWrapper {
+  width: 100%;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--bg-tertiary), var(--bg-secondary));
+  border-radius: 12px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.productImage {
+  max-width: 90%;
+  max-height: 120px;
+  object-fit: contain;
+  transition: transform 0.3s ease;
+}
+
+.productCard:hover .productImage {
+  transform: scale(1.08);
+}
+
+.productName {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  min-height: 44px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.priceSection {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.productPrice {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.bestPrice {
+  color: #059669;
+}
+
+.priceLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: white;
+  background: #059669;
+  padding: 2px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.removeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.removeBtn:hover {
+  background: #fef2f2;
+  color: #ef4444;
+  transform: scale(1.02);
+}
+
+/* ===== Строки характеристик ===== */
+.tableRow {
+  display: flex;
+  gap: 16px;
+  padding: 14px 12px;
+  border-radius: 10px;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tableRow:last-of-type {
+  border-bottom: none;
+}
+
+.tableRow:nth-child(even) {
+  background: rgba(0, 0, 0, 0.015);
+}
+
+.tableRow:hover {
+  background: var(--bg-tertiary);
+}
+
+.rowLabel {
+  flex: 1;
+  min-width: 120px;
+  padding: 0 4px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rowCell {
+  flex: 1;
+  min-width: 180px;
+  padding: 0 4px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+}
+
+.bestValue {
+  color: #059669;
+  font-weight: 600;
+}
+
+.bestValueIndicator {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: #059669;
+  border-radius: 50%;
+  margin-left: 8px;
+  animation: dotPulse 2s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Рейтинг */
+.rating {
+  color: #f59e0b;
+  font-size: 1.1rem;
+  letter-spacing: 2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ratingCount {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/* Наличие */
+.inStock {
+  color: #059669;
+  font-weight: 600;
+  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.outOfStock {
+  color: #ef4444;
+  font-size: 0.9rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Секция технических характеристик */
+.sectionTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 24px 0 14px 12px;
+  padding-top: 16px;
+  border-top: 2px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sectionTitle::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 20px;
+  background: linear-gradient(180deg, var(--accent-color), transparent);
+  border-radius: 2px;
+}
+
+/* Кнопки действий */
+.actionsRow {
+  display: flex;
+  gap: 16px;
+  padding: 20px 0 0;
+  margin-top: 4px;
+  border-top: 2px solid var(--border-color);
+}
+
+.viewProductBtn {
+  flex: 1;
+  min-width: 180px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, var(--accent-color), var(--accent-hover));
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+}
+
+.viewProductBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
+}
+
+.viewProductBtn:active {
+  transform: translateY(0);
+}
+
+/* ===== Адаптив ===== */
+
+/* Планшеты */
+@media (max-width: 1024px) {
+  .comparisonContainer {
+    padding: 40px 24px;
+  }
+
+  .comparisonTable {
+    padding: 16px;
+  }
+
+  .headerCell {
+    min-width: 160px;
+  }
+
+  .headerCell:first-child {
+    min-width: 100px;
+  }
+
+  .rowCell {
+    min-width: 160px;
+  }
+
+  .productImageWrapper {
+    height: 110px;
+  }
+}
+
+/* Мобильные */
+@media (max-width: 768px) {
+  .comparisonContainer {
+    padding: 24px 16px;
+  }
+
+  .title {
+    font-size: 1.5rem;
+  }
+
+  .subtitle {
+    font-size: 0.85rem;
+    margin-bottom: 28px;
+  }
+
+  .comparisonTable {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .tableHeader {
+    gap: 10px;
+    padding-bottom: 14px;
+  }
+
+  .headerCell {
+    min-width: 140px;
+  }
+
+  .headerCell:first-child {
+    min-width: 80px;
+  }
+
+  .productCard {
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  .productImageWrapper {
+    height: 90px;
+  }
+
+  .productImage {
+    max-height: 80px;
+  }
+
+  .productName {
+    font-size: 0.85rem;
+    min-height: 36px;
+  }
+
+  .productPrice {
+    font-size: 1.05rem;
+  }
+
+  .removeBtn {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+  }
+
+  .tableRow {
+    gap: 10px;
+    padding: 10px 8px;
+    font-size: 0.85rem;
+  }
+
+  .rowLabel {
+    min-width: 80px;
+    font-size: 0.8rem;
+  }
+
+  .rowCell {
+    min-width: 140px;
+    font-size: 0.8rem;
+  }
+
+  .viewProductBtn {
+    padding: 10px 14px;
+    font-size: 0.8rem;
+    min-width: 140px;
+  }
+
+  .bestBadge {
+    font-size: 0.6rem;
+    padding: 3px 10px;
+    top: -8px;
+    right: -6px;
+  }
+
+  .sectionTitle {
+    font-size: 1rem;
+    margin: 18px 0 10px 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .comparisonContainer {
+    padding: 16px 10px;
+  }
+
+  .comparisonTable {
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .headerCell {
+    min-width: 120px;
+  }
+
+  .headerCell:first-child {
+    min-width: 60px;
+  }
+
+  .productImageWrapper {
+    height: 70px;
+  }
+
+  .productImage {
+    max-height: 60px;
+  }
+
+  .rowLabel {
+    min-width: 60px;
+    font-size: 0.75rem;
+  }
+
+  .rowCell {
+    min-width: 120px;
+    font-size: 0.75rem;
+  }
+
+  .viewProductBtn {
+    min-width: 120px;
+    padding: 8px 10px;
+    font-size: 0.75rem;
+  }
+}
+
+/* ===== Темная тема ===== */
+html[data-theme="dark"] .backToCatalogBtn,
+html[data-theme="dark"] .viewProductBtn {
+  color: #0f172a;
+}
+
+html[data-theme="dark"] .backToCatalogBtn:hover,
+html[data-theme="dark"] .viewProductBtn:hover {
+  color: #0f172a;
+}
+
+html[data-theme="dark"] .clearAllBtn {
+  color: #fca5a5;
+  border-color: #7f1d1d;
+}
+
+html[data-theme="dark"] .clearAllBtn:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+  border-color: #ef4444;
+  color: #fca5a5;
+}
+
+html[data-theme="dark"] .productCard {
+  background: var(--bg-secondary);
+}
+
+html[data-theme="dark"] .comparisonTable {
+  background: var(--bg-tertiary);
+}
+
+html[data-theme="dark"] .tableRow:nth-child(even) {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* ===== Анимации ===== */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

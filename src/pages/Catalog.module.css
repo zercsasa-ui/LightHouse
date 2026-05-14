@@ -1,7 +1,7 @@
 .catalogContainer {
-   padding: 50px;
-   background-color: var(--bg-primary);
-   transition: background-color 0.3s ease;
+  padding: 50px;
+  background-color: var(--bg-primary);
+  transition: background-color 0.3s ease;
 
 }
 
@@ -204,7 +204,7 @@
 }
 
 .productsGrid {
-display: grid;
+  display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 20px;
 }
@@ -221,7 +221,8 @@ display: grid;
   flex-direction: column;
   transform: translateZ(0);
   will-change: transform;
-     max-width: 320px;
+  max-width: 320px;
+  z-index: 1;
 }
 
 .productCard:hover {
@@ -249,6 +250,7 @@ display: grid;
   flex: 1;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .productName {
@@ -294,6 +296,20 @@ display: grid;
   color: var(--text-secondary);
   font-size: 12px;
   margin-left: 4px;
+}
+
+.categoryInfo {
+  margin-bottom: 8px;
+  min-height: 16px;
+  flex-shrink: 0;
+}
+
+.productCategory {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  display: block;
+  text-transform: capitalize;
 }
 
 .stockInfo {
@@ -377,7 +393,11 @@ display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 14px;
   }
-  .productCard{max-width: 220px;}
+
+  .productCard {
+    max-width: 220px;
+  }
+
   .imageContainer {
     height: 230px;
   }
@@ -441,7 +461,7 @@ display: grid;
   .productsGrid {
     grid-template-columns: 1fr;
   }
-  
+
   .productCard {
     margin: 0 auto;
     max-width: 280px;
@@ -556,4 +576,49 @@ display: grid;
     padding: 5px 10px;
     font-size: 12px;
   }
+}
+
+/* Стили для кнопки сравнения */
+.comparisonBtn {
+  width: 100%;
+  padding: 8px;
+  margin-top: 8px;
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  position: relative;
+  z-index: 20;
+}
+
+.comparisonBtn:hover {
+  background-color: var(--bg-tertiary);
+  border-color: var(--accent-color);
+}
+
+.comparisonBtnActive {
+  background-color: var(--accent-color);
+  color: white;
+  border-color: var(--accent-color);
+}
+
+
+
+
+.comparisonBtnActive:hover {
+  background-color: var(--accent-color-dark);
+  border-color: var(--accent-color-dark);
+  color: var(--accent-color-dark);
+}
+
+html[data-theme="dark"] .comparisonBtnActive {
+ background-color: var(--accent-color-dark);
+  color: white;
 }

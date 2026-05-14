@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 // const supabaseUrl = '/api/supabase-proxy'
 // const supabaseKey = 'sb_publishable_oyu0Kmel3M15Am53sI_tzg_dZws5Hds'
 
-// ✅ Прямое подключение к Supabase
+//  Прямое подключение к Supabase
 const supabaseUrl = 'https://mutebkvjowivxupnexzp.supabase.co'
 const supabaseKey = 'sb_publishable_oyu0Kmel3M15Am53sI_tzg_dZws5Hds'
 
@@ -68,7 +68,7 @@ const fetchWithRetry = async (url, options, retries = 4) => {
   throw lastError
 }
 
-// ✅ Клиент с зеркалами, повторами и умным кешем
+// Клиент с зеркалами, повторами и умным кешем
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     autoRefreshToken: true,
@@ -160,7 +160,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
         // Запоминаем самый быстрый рабочий домен
         currentDomainIndex = successIndex
 
-        console.log(`✅ Ответил домен ${FALLBACK_DOMAINS[successIndex]} за ${successIndex} позицией`)
+        console.log(`Ответил домен ${FALLBACK_DOMAINS[successIndex]} за ${successIndex} позицией`)
         return response
       }
 

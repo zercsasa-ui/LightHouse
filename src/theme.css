@@ -20,6 +20,7 @@ html[data-theme="dark"] {
   --shadow-color: rgba(0, 0, 0, 0.5);
   --accent-color: #f8fafc;
   --accent-hover: #e2e8f0;
+  --video-circle-border: #e2e8f0;
 }
 
 * {

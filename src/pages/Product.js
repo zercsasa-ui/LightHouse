@@ -4,6 +4,59 @@ import { supabase } from '../supabase';
 import { useAuth } from '../context/AuthContext';
 import styles from './Product.module.css';
 
+const INITIAL_VISIBLE = 4;
+
+const ProductGridSection = ({ title, products }) => {
+  const navigate = useNavigate();
+  const [visible, setVisible] = useState(INITIAL_VISIBLE);
+  const hasMore = products.length > visible;
+
+  return (
+    <div className={styles.relatedSection}>
+      <h2 className={styles.sectionTitle}>{title}</h2>
+      <div className={styles.productsGrid}>
+        {products.slice(0, visible).map(item => (
+          <div
+            key={item.id}
+            className={styles.productCard}
+            onClick={() => {
+              navigate(`/product/${item.id}`);
+              window.scrollTo(0, 0);
+            }}
+          >
+            <div className={styles.imageContainer}>
+              <img
+                src={item.image_url || 'https://via.placeholder.com/300x200'}
+                alt={item.name}
+                className={styles.productImage}
+              />
+            </div>
+            <div className={styles.cardInfo}>
+              <h3 className={styles.cardName}>{item.name}</h3>
+              <div className={styles.cardFooter}>
+                <span className={styles.cardPrice}>{item.price} ₽</span>
+                <div className={styles.cardRating}>
+                  {'★'.repeat(Math.round(item.rating || 0))}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {hasMore && (
+        <div className={styles.showMoreRow}>
+          <button
+            className={styles.showMoreBtn}
+            onClick={() => setVisible(prev => prev + INITIAL_VISIBLE)}
+          >
+            Показать ещё ({products.length - visible})
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const Product = ({ isSidebarCollapsed }) => {
   const { id } = useParams();
   const [product, setProduct] = useState(null);
@@ -15,6 +68,7 @@ const Product = ({ isSidebarCollapsed }) => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [showImageModal, setShowImageModal] = useState(false);
+  const [topCategoryProducts, setTopCategoryProducts] = useState([]);
   const [latestProducts, setLatestProducts] = useState([]);
   const [viewedProducts, setViewedProducts] = useState([]);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -29,6 +83,7 @@ const Product = ({ isSidebarCollapsed }) => {
   const [newQuestionText, setNewQuestionText] = useState('');
   const [submittingQuestion, setSubmittingQuestion] = useState(false);
   const [isQuestionsExpanded, setIsQuestionsExpanded] = useState(false);
+  const [visibleQuestionsCount, setVisibleQuestionsCount] = useState(3);
 
   const showToast = (message) => {
     setSuccessMessage(message);
@@ -103,13 +158,26 @@ const Product = ({ isSidebarCollapsed }) => {
         const newViewed = [parseInt(id), ...filtered].slice(0, 10);
         localStorage.setItem('viewedProducts', JSON.stringify(newViewed));
 
+        // Загружаем лучшие товары из этой же категории
+        if (data.category_id) {
+          const { data: topData } = await supabase
+            .from('products')
+            .select('*, categories(name)')
+            .eq('category_id', data.category_id)
+            .neq('id', id)
+            .order('rating', { ascending: false });
+
+          setTopCategoryProducts(topData || []);
+        } else {
+          setTopCategoryProducts([]);
+        }
+
         // Загружаем последние добавленные товары
         const { data: latestData } = await supabase
           .from('products')
           .select('*, categories(name)')
           .neq('id', id)
-          .order('id', { ascending: false })
-          .limit(4);
+          .order('id', { ascending: false });
 
         setLatestProducts(latestData || []);
 
@@ -118,7 +186,7 @@ const Product = ({ isSidebarCollapsed }) => {
           const { data: viewedData } = await supabase
             .from('products')
             .select('*, categories(name)')
-            .in('id', newViewed.slice(1, 5));
+            .in('id', newViewed.slice(1));
 
           setViewedProducts(viewedData || []);
         }
@@ -210,7 +278,7 @@ const Product = ({ isSidebarCollapsed }) => {
           question: newQuestionText.trim()
         });
 
-      showToast('✅ Ваш вопрос отправлен на модерацию и будет опубликован после проверки');
+      showToast('Ваш вопрос отправлен на модерацию и будет опубликован после проверки');
       
       // Очищаем форму
       setNewQuestionName('');
@@ -341,9 +409,8 @@ const Product = ({ isSidebarCollapsed }) => {
 
   return (
     <div className={styles.productContainer}>
-      <button className={`${styles.backBtn} ${isSidebarCollapsed ? styles.backBtnCollapsed : ''}`} onClick={() => navigate(-1)}>
-        <p>Назад</p>
-
+      <button className={`${styles.backBtn} ${isSidebarCollapsed ? styles.backBtnCollapsed : ''} ${showImageModal ? styles.backBtnHidden : ''}`} onClick={() => navigate(-1)}>
+        <span className={styles.backBtnText}>Назад</span>
       </button>
 
       <div className={styles.productPage}>
@@ -370,6 +437,31 @@ const Product = ({ isSidebarCollapsed }) => {
 
           <p className={styles.productDescription}>{product.description}</p>
 
+          {/* Параметры товара */}
+          {product.parameters && (() => {
+            let parsed;
+            try {
+              parsed = JSON.parse(product.parameters);
+            } catch (e) {
+              return null;
+            }
+            const entries = Object.entries(parsed).filter(([, v]) => v?.trim());
+            if (entries.length === 0) return null;
+            return (
+              <div className={styles.productParams}>
+                <h4 className={styles.productParamsTitle}>Характеристики</h4>
+                <div className={styles.productParamsList}>
+                  {entries.map(([key, value]) => (
+                    <div key={key} className={styles.productParamRow}>
+                      <span className={styles.productParamLabel}>{key}</span>
+                      <span className={styles.productParamValue}>{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
           <div className={styles.productPriceBlock}>
             <div className={styles.priceRow}>
               <span className={styles.productPrice}>{product.price} ₽</span>
@@ -379,7 +471,7 @@ const Product = ({ isSidebarCollapsed }) => {
                   В наличии: {product.stock} шт.
                 </span>
               ) : (
-                <span className={styles.outOfStock}>❌ Нет в наличии</span>
+                <span className={styles.outOfStock}> Нет в наличии</span>
               )}
             </div>
           </div>
@@ -544,7 +636,7 @@ const Product = ({ isSidebarCollapsed }) => {
               </div>
             ) : (
               <div className={styles.questionsList}>
-            {questions.slice(0, 3).map(q => (
+            {questions.slice(0, visibleQuestionsCount).map(q => (
               <div key={q.id} id={`question-${q.id}`} className={styles.questionItem}>
                     <div className={styles.questionHeader}>
                       <span className={styles.questionAuthor}>{q.user_name}</span>
@@ -566,8 +658,11 @@ const Product = ({ isSidebarCollapsed }) => {
                   </div>
                 ))}
                 
-                {questions.length > 3 && (
-                  <button className={styles.showMoreQuestionsBtn}>
+                {questions.length > visibleQuestionsCount && (
+                  <button 
+                    className={styles.showMoreQuestionsBtn}
+                    onClick={() => setVisibleQuestionsCount(questions.length)}
+                  >
                     Показать все вопросы ({questions.length})
                   </button>
                 )}
@@ -622,62 +717,28 @@ const Product = ({ isSidebarCollapsed }) => {
         </div>
       )}
 
+      {/* Лучшее из этой категории */}
+      {topCategoryProducts.length > 0 && (
+        <ProductGridSection
+          title="Лучшее из этой категории"
+          products={topCategoryProducts}
+        />
+      )}
+
       {/* Последние добавленные товары */}
       {latestProducts.length > 0 && (
-        <div className={styles.relatedSection}>
-          <h2 className={styles.sectionTitle}>Последние добавленные товары</h2>
-          <div className={styles.productsGrid}>
-            {latestProducts.map(item => (
-              <div key={item.id} className={styles.productCard} onClick={() => navigate(`/product/${item.id}`)}>
-                <div className={styles.imageContainer}>
-                  <img
-                    src={item.image_url || 'https://via.placeholder.com/300x200'}
-                    alt={item.name}
-                    className={styles.productImage}
-                  />
-                </div>
-                <div className={styles.cardInfo}>
-                  <h3 className={styles.cardName}>{item.name}</h3>
-                  <div className={styles.cardFooter}>
-                    <span className={styles.cardPrice}>{item.price} ₽</span>
-                    <div className={styles.cardRating}>
-                      {'★'.repeat(Math.round(item.rating || 0))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <ProductGridSection
+          title="Новинки"
+          products={latestProducts}
+        />
       )}
 
       {/* Вы недавно смотрели */}
       {viewedProducts.length > 0 && (
-        <div className={styles.relatedSection}>
-          <h2 className={styles.sectionTitle}>Вы недавно смотрели</h2>
-          <div className={styles.productsGrid}>
-            {viewedProducts.map(item => (
-              <div key={item.id} className={styles.productCard} onClick={() => navigate(`/product/${item.id}`)}>
-                <div className={styles.imageContainer}>
-                  <img
-                    src={item.image_url || 'https://via.placeholder.com/300x200'}
-                    alt={item.name}
-                    className={styles.productImage}
-                  />
-                </div>
-                <div className={styles.cardInfo}>
-                  <h3 className={styles.cardName}>{item.name}</h3>
-                  <div className={styles.cardFooter}>
-                    <span className={styles.cardPrice}>{item.price} ₽</span>
-                    <div className={styles.cardRating}>
-                      {'★'.repeat(Math.round(item.rating || 0))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <ProductGridSection
+          title="Вы недавно смотрели"
+          products={viewedProducts}
+        />
       )}
 
 

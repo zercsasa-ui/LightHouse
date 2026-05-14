@@ -2,6 +2,7 @@
   padding: 50px;
   background-color: var(--bg-primary);
   transition: background-color 0.3s ease;
+  overflow-x: hidden;
 }
 
 .title {
@@ -16,8 +17,8 @@
   grid-template-columns: 1fr 1fr;
   gap: 30px;
   margin-bottom: 30px;
+  align-items: start;
 }
-
 
 .mapSection {
   margin-bottom: 30px;
@@ -303,14 +304,10 @@ html[data-theme="dark"] .contactIcon {
  
   }
 .infoSection{
-  max-width: 90%;
-  min-width: none;
-   margin: 0 auto;
+  width: 100%;
 }
 .formSection{
-  max-width: 90%;
-  min-width: none;
-     margin: 0 auto;
+  width: 100%;
 }
 .form-control input{
   width: 50%;
@@ -375,5 +372,92 @@ html[data-theme="dark"] .contactIcon {
   .loginPrompt {
     padding: 12px;
     font-size: 0.8rem;
+  }
+}
+
+/* Адаптив для 360px и меньше - экстремально компактный вид */
+@media (max-width: 360px) {
+  .contactsContainer {
+    padding: 8px;
+  }
+
+  .title {
+    font-size: 1.1rem;
+    margin-bottom: 10px;
+  }
+
+  .topRow {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .infoSection,
+  .formSection {
+    padding: 8px;
+    border-radius: 4px;
+  }
+
+  .infoSection h2,
+  .formSection h2 {
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+  }
+
+  .contactItem {
+    gap: 6px;
+    margin-bottom: 8px;
+    padding: 4px;
+  }
+
+  .contactIcon {
+    width: 14px;
+    height: 14px;
+    margin-top: 1px;
+  }
+
+  .contactItem strong {
+    font-size: 0.8rem;
+  }
+
+  .contactItem p {
+    font-size: 0.7rem;
+  }
+
+  .formGroup {
+    gap: 2px;
+  }
+
+  .formGroup label {
+    font-size: 0.7rem;
+  }
+
+  .formGroup input,
+  .formGroup textarea {
+    padding: 4px 6px;
+    font-size: 11px;
+  }
+
+  .submitBtn {
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+
+  .mapSection {
+    margin-bottom: 8px;
+  }
+
+  .loginPrompt {
+    padding: 8px;
+    font-size: 0.75rem;
+  }
+
+  /* Сделаем форму еще более компактной */
+  .contactForm {
+    gap: 8px;
+  }
+
+  /* Уменьшим размеры карты */
+  .mapContainer iframe {
+    min-height: 200px;
   }
 }

@@ -1,4 +1,3 @@
-/* MainSidebar в строгом стиле главной страницы */
 .sidebar {
   position: fixed;
   top: 0;
@@ -172,6 +171,29 @@
   position: relative;
   white-space: nowrap;
   overflow: hidden;
+}
+
+.iconWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notificationBadge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #ef4444;
+  color: white;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 16px;
+  padding: 0 3px;
 }
 
 .sidebarCollapsed .sidebarLink {
@@ -559,37 +581,48 @@ html[data-theme="dark"] .loginButton:hover .buttonIcon {
   .sidebarNav {
     display: flex;
     flex-direction: row;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
     gap: 4px;
     padding: 0 8px;
     overflow-x: auto;
-    scrollbar-width: thin;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
     -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    -webkit-mask-image: linear-gradient(to right, transparent, white 10px, white calc(100% - 10px), transparent);
+    mask-image: linear-gradient(to right, transparent, white 10px, white calc(100% - 10px), transparent);
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+  }
+
+  .sidebarNav:hover {
+    overflow-x: auto;
   }
   
+  .sidebarNav li {
+    scroll-snap-align: start;
+    flex-shrink: 0;
+    margin: 0;
+  }
+
   .sidebarNav::-webkit-scrollbar {
-    height: 3px;
+    width: 0;
+    height: 0;
+  }
+  
+  .sidebarNav::-webkit-scrollbar-thumb {
     background: transparent;
   }
   
   .sidebarNav::-webkit-scrollbar-track {
     background: transparent;
-    margin: 12px;
-  }
-  
-  .sidebarNav::-webkit-scrollbar-thumb {
-    background: var(--accent-color);
-    border-radius: 100px;
-    opacity: 0.6;
-  }
-
-  .sidebarNav::-webkit-scrollbar-thumb:hover {
-    background: var(--accent-hover);
-  }
-
-  .sidebarNav li {
-    margin: 0;
   }
 
   .mobileOnlyBtn {
@@ -606,6 +639,23 @@ html[data-theme="dark"] .loginButton:hover .buttonIcon {
     border-left: none;
     border-radius: 8px;
     min-width: 60px;
+  }
+
+  .sidebarLink .iconWrapper {
+    width: 20px;
+    height: 20px;
+  }
+
+  .sidebarLink .notificationBadge {
+    top: -5px;
+    right: -5px;
+    width: 16px;
+    height: 16px;
+    font-size: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
   }
 
   .sidebarLink span {
@@ -751,6 +801,13 @@ html[data-theme="dark"] .loginButton:hover .buttonIcon {
 @media (max-width: 330px) {
   .burgerButton {
     display: flex !important;
+    align-items: center;
+    justify-content: center;
+    margin: auto;
+    padding: 8px;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
   }
 
   .sidebar {
@@ -781,6 +838,9 @@ html[data-theme="dark"] .loginButton:hover .buttonIcon {
 
   .sidebarNav.sidebarNavMobileOpen {
     display: flex !important;
+    background: var(--bg-primary) !important;
+    border: 2px solid var(--border-color) !important;
+    border-radius: 12px !important;
   }
 
   .sidebarNav li {
@@ -832,5 +892,36 @@ html[data-theme="dark"] .loginButton:hover .buttonIcon {
 
   .mainContent {
     margin-bottom: 50px;
+  }
+}
+
+.comparisonNotification {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  background-color: var(--accent-color);
+  color: var(--bg-primary);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  animation: slideIn 0.3s ease-out;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+html[data-theme="dark"] .comparisonNotification {
+  background-color: var(--accent-color);
+  color: #0f172a;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
   }
 }
