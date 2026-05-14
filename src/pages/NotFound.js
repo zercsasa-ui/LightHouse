@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styles from './NotFound.module.css';
 
@@ -7,6 +7,7 @@ const videoSrc = process.env.PUBLIC_URL + '/images/ico/Возьми телефо
 export default function NotFound() {
   const videoRef = useRef(null);
   const fallbackRef = useRef(false);
+  const [isPlaying, setIsPlaying] = useState(true); // состояние для отображения иконки
 
   useEffect(() => {
     const vid = videoRef.current;
@@ -36,11 +37,29 @@ export default function NotFound() {
     };
   }, []);
 
+  // Функция для переключения воспроизведения/паузы
+  const togglePlayPause = () => {
+    const vid = videoRef.current;
+    if (!vid) return;
+
+    if (vid.paused) {
+      vid.play();
+      setIsPlaying(true);
+    } else {
+      vid.pause();
+      setIsPlaying(false);
+    }
+  };
+
   return (
     <div className={styles.page}>
       <div className={styles.code}>
         <span className={styles.codeFour}>4</span>
-        <div className={styles.videoCircle}>
+        <div
+          className={styles.videoCircle}
+          onClick={togglePlayPause}
+          title={isPlaying ? 'Пауза' : 'Воспроизвести'}
+        >
           <video
             ref={videoRef}
             src={videoSrc}
@@ -49,6 +68,10 @@ export default function NotFound() {
             playsInline
             controls={false}
           />
+          {/* Простая иконка-оверлей (необязательно) */}
+          <div className={styles.playPauseOverlay}>
+            {!isPlaying && <span className={styles.playIcon}>▶</span>}
+          </div>
         </div>
         <span className={styles.codeFour}>4</span>
       </div>
