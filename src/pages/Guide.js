@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import styles from './Guide.module.css';
 
-// Вынесено за пределы компонента, так как данные статичны.
-// Это устраняет предупреждение react-hooks/exhaustive-deps и оптимизирует рендеринг.
+
 const sections = [
   { id: 'intro', title: 'Введение', icon: '/images/ico/icoObsh.png' },
   { id: 'interface', title: 'Интерфейс', icon: '/images/ico/icoInterf.png' },

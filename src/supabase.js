@@ -5,8 +5,14 @@ import { createClient } from '@supabase/supabase-js'
 // const supabaseKey = 'sb_publishable_oyu0Kmel3M15Am53sI_tzg_dZws5Hds'
 
 //  Прямое подключение к Supabase
-const supabaseUrl = 'https://mutebkvjowivxupnexzp.supabase.co'
-const supabaseKey = 'sb_publishable_oyu0Kmel3M15Am53sI_tzg_dZws5Hds'
+// Вместо жестких строк:
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+// Для проверки, что переменные есть (можно добавить):
+if (!supabaseUrl || !supabaseKey) {
+  console.error('❌ Переменные окружения Supabase не заданы');
+}
 
 //   Актуальные рабочие зеркала Supabase апрель 2026
 const FALLBACK_DOMAINS = [

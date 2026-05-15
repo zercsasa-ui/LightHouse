@@ -63,17 +63,16 @@ const MainSidebar = ({ isCollapsed, setIsCollapsed }) => {
     }
   }, [isCollapsed]);
 
-  // Handle mouse wheel scrolling for bottom menu
   useEffect(() => {
     const sidebarNav = document.querySelector(`.${styles.sidebarNav}`);
     if (!sidebarNav) return;
 
     const handleWheel = (e) => {
-      // Check if we're in mobile view (menu at bottom)
+
       const isMobileView = window.innerWidth <= 720;
 
       if (isMobileView) {
-        // Only handle wheel events when mouse is over the sidebar navigation
+  
         const rect = sidebarNav.getBoundingClientRect();
         const isOverSidebar = (
           e.clientX >= rect.left &&
@@ -89,7 +88,7 @@ const MainSidebar = ({ isCollapsed, setIsCollapsed }) => {
       }
     };
 
-    // Add event listener to the document
+   
     document.addEventListener('wheel', handleWheel, { passive: false });
 
     return () => {
@@ -97,7 +96,7 @@ const MainSidebar = ({ isCollapsed, setIsCollapsed }) => {
     };
   }, []);
 
-  // Принудительно разворачиваем сайдбар при перемещении меню вниз (<=720px)
+
   useEffect(() => {
     const checkMobileView = () => {
       if (window.innerWidth <= 720 && isCollapsed) {
