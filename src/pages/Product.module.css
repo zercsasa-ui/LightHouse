@@ -9,7 +9,7 @@
 
 .backBtn {
   position: fixed;
-  left: 110px;
+  left: 150px;
   top: 50%;
   transform: translateY(-50%) rotate(90deg);
   width: 300px;
@@ -18,12 +18,12 @@
   border: none;
   cursor: pointer;
   transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1), all 0.3s ease;
-  z-index: 11199;
+  z-index: 1199;
   filter: var(--back-btn-filter, none);
 }
 
 .backBtnCollapsed {
-  left: 10px;
+  left: -30px;
 }
 
 .backBtnHidden {

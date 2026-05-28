@@ -34,6 +34,10 @@
   pointer-events: none;
 }
 
+html[data-theme="dark"] .searchIcon {
+  filter: invert(1);
+}
+
 .searchInput {
   width: 100%;
   padding: 12px 90px 12px 44px;
