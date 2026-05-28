@@ -167,7 +167,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
       //   Если все домены упали - возвращаем даже устаревший кеш
       for (const [key, cached] of globalCache) {
         if (key === cacheKey) {
-          console.log('⚠️ Использую устаревший кеш, база недоступна')
+          console.log(' Использую устаревший кеш, база недоступна')
           return new Response(JSON.stringify(cached.data))
         }
       }
@@ -276,7 +276,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
       //   Если все домены упали - возвращаем даже устаревший кеш
       for (const [key, cached] of globalCache) {
         if (key === cacheKey) {
-          console.log('⚠️ Использую устаревший кеш, база недоступна')
+          console.log(' Использую устаревший кеш, база недоступна')
           return new Response(JSON.stringify(cached.data))
         }
       }

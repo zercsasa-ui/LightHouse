@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../supabase';
 import styles from './Auth.module.css';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
+  const [forgotPassword, setForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
   const [loginInput, setLoginInput] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -82,6 +85,40 @@ const Auth = () => {
     return password.length >= 6 && password.length <= 128;
   };
 
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const sanitizedEmail = sanitizeInput(forgotEmail);
+
+      if (!validateEmail(sanitizedEmail)) {
+        throw new Error('Введите корректный email адрес');
+      }
+
+      // Вызываем Database Function (обходит RLS через SECURITY DEFINER)
+      const { data: result, error: rpcError } = await supabase.rpc(
+        'set_password_reset_flag',
+        { target_email: sanitizedEmail }
+      );
+
+      if (rpcError) throw rpcError;
+
+      if (result === false) {
+        throw new Error('Пользователь с таким email не найден');
+      }
+
+      setSuccess('Запрос на сброс пароля отправлен администратору. Ожидайте уведомления.');
+      setForgotEmail('');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -138,6 +175,14 @@ const Auth = () => {
     }
   };
 
+  // Возврат к форме входа
+  const backToLogin = () => {
+    setForgotPassword(false);
+    setForgotEmail('');
+    setError('');
+    setSuccess('');
+  };
+
   return (
     <div className={styles.authContainer}>
       <button className={styles.backToHomeBtn} onClick={() => navigate('/')}>
@@ -145,130 +190,178 @@ const Auth = () => {
       </button>
       <div className={styles.authCard}>
         <h2 className={styles.authTitle}>
-          {isLogin ? 'Вход' : 'Регистрация'}
+          {forgotPassword ? 'Восстановление пароля' : (isLogin ? 'Вход' : 'Регистрация')}
         </h2>
         
         {error && <div className={styles.errorMessage}>{error}</div>}
         {success && <div className={styles.successMessage}>{success}</div>}
         
-        <form className={styles.authForm} onSubmit={handleSubmit}>
-          {isLogin ? (
+        {forgotPassword ? (
+          <form className={styles.authForm} onSubmit={handleForgotPassword}>
             <div className={styles.formGroup}>
-              <label htmlFor="loginInput">Email или никнейм</label>
+              <label htmlFor="forgotEmail">Ваш email</label>
               <input
-                type="text"
-                id="loginInput"
-                value={loginInput}
-                onChange={(e) => setLoginInput(e.target.value)}
-                placeholder="Введите email или никнейм"
+                type="email"
+                id="forgotEmail"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                placeholder="Введите email, указанный при регистрации"
                 required
               />
             </div>
-          ) : (
-            <>
+
+            <button 
+              type="submit" 
+              className={styles.authButton}
+              disabled={loading}
+            >
+              {loading ? 'Отправка...' : 'Отправить запрос'}
+            </button>
+
+            <button 
+              type="button" 
+              className={styles.backToLoginBtn}
+              onClick={backToLogin}
+            >
+              ← Вернуться ко входу
+            </button>
+          </form>
+        ) : (
+          <form className={styles.authForm} onSubmit={handleSubmit}>
+            {isLogin ? (
               <div className={styles.formGroup}>
-                <label htmlFor="name">Никнейм</label>
+                <label htmlFor="loginInput">Email или никнейм</label>
                 <input
                   type="text"
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Придумайте никнейм"
+                  id="loginInput"
+                  value={loginInput}
+                  onChange={(e) => setLoginInput(e.target.value)}
+                  placeholder="Введите email или никнейм"
                   required
                 />
               </div>
-              
-              <div className={styles.formGroup}>
-                <label htmlFor="email">Email</label>
-                <input
-                  type="email"
-                  id="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Введите email"
-                  required
-                />
-              </div>
-            </>
-          )}
-          
-          <div className={styles.formGroup}>
-            <label htmlFor="password">Пароль</label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Введите пароль"
-              required
-              minLength={6}
-            />
-          </div>
-          
-          {!isLogin && (
-            <div className={styles.agreementGroup}>
-              <label className={styles.checkboxLabel}>
-                <input
-                  type="checkbox"
-                  checked={agreed}
-                  onChange={(e) => setAgreed(e.target.checked)}
-                  className={styles.checkboxInput}
-                  required
-                />
-                <span className={styles.checkboxCustom} />
-                <span
-                  className={styles.agreementText}
-                  onMouseEnter={() => setShowTooltip(true)}
-                  onMouseLeave={() => setShowTooltip(false)}
-                >
-                  Я согласен на{' '}
-                  <a
-                    href="https://www.consultant.ru/document/cons_doc_LAW_61801/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={styles.agreementLink}
-                  >
-                    обработку персональных данных
-                  </a>
-                  {showTooltip && (
-                    <span className={styles.tooltip}>
-                      Нажимая «Зарегистрироваться», вы даёте согласие на сбор, хранение и обработку
-                      ваших персональных данных (ФИО, email, никнейм) в соответствии с Федеральным
-                      законом № 152-ФЗ «О персональных данных». Ваши данные используются только для
-                      создания и поддержки учётной записи на сайте и не передаются третьим лицам.
-                    </span>
-                  )}
-                </span>
-              </label>
+            ) : (
+              <>
+                <div className={styles.formGroup}>
+                  <label htmlFor="name">Никнейм</label>
+                  <input
+                    type="text"
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Придумайте никнейм"
+                    required
+                  />
+                </div>
+                
+                <div className={styles.formGroup}>
+                  <label htmlFor="email">Email</label>
+                  <input
+                    type="email"
+                    id="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Введите email"
+                    required
+                  />
+                </div>
+              </>
+            )}
+            
+            <div className={styles.formGroup}>
+              <label htmlFor="password">Пароль</label>
+              <input
+                type="password"
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Введите пароль"
+                required
+                minLength={6}
+              />
             </div>
-          )}
+            
+            {isLogin && (
+              <button
+                type="button"
+                className={styles.forgotPasswordBtn}
+                onClick={() => {
+                  setForgotPassword(true);
+                  setError('');
+                  setSuccess('');
+                }}
+              >
+                Забыли пароль?
+              </button>
+            )}
+            
+            {!isLogin && (
+              <div className={styles.agreementGroup}>
+                <label className={styles.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={agreed}
+                    onChange={(e) => setAgreed(e.target.checked)}
+                    className={styles.checkboxInput}
+                    required
+                  />
+                  <span className={styles.checkboxCustom} />
+                  <span
+                    className={styles.agreementText}
+                    onMouseEnter={() => setShowTooltip(true)}
+                    onMouseLeave={() => setShowTooltip(false)}
+                  >
+                    Я согласен на{' '}
+                    <a
+                      href="https://www.consultant.ru/document/cons_doc_LAW_61801/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.agreementLink}
+                    >
+                      обработку персональных данных
+                    </a>
+                    {showTooltip && (
+                      <span className={styles.tooltip}>
+                        Нажимая «Зарегистрироваться», вы даёте согласие на сбор, хранение и обработку
+                        ваших персональных данных (ФИО, email, никнейм) в соответствии с Федеральным
+                        законом № 152-ФЗ «О персональных данных». Ваши данные используются только для
+                        создания и поддержки учётной записи на сайте и не передаются третьим лицам.
+                      </span>
+                    )}
+                  </span>
+                </label>
+              </div>
+            )}
 
-          <button 
-            type="submit" 
-            className={styles.authButton}
-            disabled={loading || (!isLogin && !agreed)}
-          >
-            {loading ? 'Загрузка...' : (isLogin ? 'Войти' : 'Зарегистрироваться')}
-          </button>
-        </form>
+            <button 
+              type="submit" 
+              className={styles.authButton}
+              disabled={loading || (!isLogin && !agreed)}
+            >
+              {loading ? 'Загрузка...' : (isLogin ? 'Войти' : 'Зарегистрироваться')}
+            </button>
+          </form>
+        )}
         
-        <div className={styles.authSwitch}>
-          {isLogin ? (
-            <p>
-              Нет аккаунта?{' '}
-              <button type="button" onClick={() => setIsLogin(false)}>
-                Зарегистрироваться
-              </button>
-            </p>
-          ) : (
-            <p>
-              Уже есть аккаунт?{' '}
-              <button type="button" onClick={() => setIsLogin(true)}>
-                Войти
-              </button>
-            </p>
-          )}
-        </div>
+        {!forgotPassword && (
+          <div className={styles.authSwitch}>
+            {isLogin ? (
+              <p>
+                Нет аккаунта?{' '}
+                <button type="button" onClick={() => setIsLogin(false)}>
+                  Зарегистрироваться
+                </button>
+              </p>
+            ) : (
+              <p>
+                Уже есть аккаунт?{' '}
+                <button type="button" onClick={() => setIsLogin(true)}>
+                  Войти
+                </button>
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

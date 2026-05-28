@@ -1366,6 +1366,37 @@
   font-size: 13px;
 }
 
+/* Подсветка пользователя, которому нужен сброс пароля */
+.userNeedsReset {
+  border: 2px solid #eab308;
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.08), rgba(234, 179, 8, 0.02));
+  position: relative;
+}
+
+.resetBadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 6px 12px;
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  color: #92400e;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.resetBadge::before {
+  content: '';
+  font-size: 0.9rem;
+}
+
+.resetBadge span {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 /* Категории */
 .categoriesSection {
   padding: 20px 0;

@@ -62,7 +62,12 @@ const UsersSection = ({
       ) : (
         <div className={`${styles.usersList} ${globalViewMode === 'grid' ? styles.usersGrid : ''}`}>
           {processedUsers.map(user => (
-            <div key={user.id} className={styles.userCard}>
+            <div key={user.id} className={`${styles.userCard} ${user.needs_password_reset ? styles.userNeedsReset : ''}`}>
+              {user.needs_password_reset && (
+                <div className={styles.resetBadge}>
+                  <span>Нужен сброс пароля</span>
+                </div>
+              )}
               <div className={styles.userInfo}>
                 <div className={styles.userMainInfo}>
                   <h3>{user.name}</h3>

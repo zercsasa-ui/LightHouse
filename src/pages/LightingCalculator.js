@@ -1303,7 +1303,7 @@ import Toast from '../components/Toast';
                       paddingTop: '6px'
                     }}>
                       <span>Разница:</span>
-                      <strong>{currentLampsInRoom >= calcResult.requiredLamps ? ' Норма' : `⚠️ Нужно ещё ${calcResult.requiredLamps - currentLampsInRoom}`}</strong>
+                      <strong>{currentLampsInRoom >= calcResult.requiredLamps ? ' Норма' : ` Нужно ещё ${calcResult.requiredLamps - currentLampsInRoom}`}</strong>
                     </div>
                   </div>
                 );
