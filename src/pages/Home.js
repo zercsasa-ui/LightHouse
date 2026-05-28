@@ -1,11 +1,33 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import useScrollReveal from '../hooks/useScrollReveal';
 import styles from './Home.module.css';
 
 const Home = () => {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentImage, setCurrentImage] = useState(0);
+  const [heroVisible, setHeroVisible] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setHeroVisible(true), 200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const featuresTitle = useScrollReveal({ threshold: 0.1 });
+  const featureRefs = [
+    useScrollReveal({ threshold: 0.1 }),
+    useScrollReveal({ threshold: 0.1 }),
+    useScrollReveal({ threshold: 0.1 }),
+  ];
+  const aboutTitle = useScrollReveal({ threshold: 0.1 });
+  const aboutImage = useScrollReveal({ threshold: 0.1 });
+  const aboutText = useScrollReveal({ threshold: 0.1 });
+  const galleryTitle = useScrollReveal({ threshold: 0.1 });
+  const galleryPreviewReveal = useScrollReveal({ threshold: 0.1 });
+  const ctaTitle = useScrollReveal({ threshold: 0.1 });
+  const ctaText = useScrollReveal({ threshold: 0.1 });
+  const ctaBtn = useScrollReveal({ threshold: 0.1 });
 
   const features = [
     {
@@ -51,12 +73,15 @@ const Home = () => {
     <div className={styles.homeContainer}>
       {/* Hero Section */}
       <section className={styles.hero}>
-        <div className={styles.heroContent}>
-          <h1 className={styles.heroTitle}>Надёжная электротехника</h1>
-          <p className={styles.heroSubtitle}>
+        <div className={`${styles.heroBg} ${heroVisible ? styles.heroBgVisible : ''}`} />
+        <div className={styles.heroContent} style={{ position: 'relative', zIndex: 2 }}>
+          <h1 className={`${styles.heroTitle} ${styles.heroReveal} ${heroVisible ? styles.heroRevealVisible : ''}`}>
+            Надёжная электротехника
+          </h1>
+          <p className={`${styles.heroSubtitle} ${styles.heroReveal} ${heroVisible ? styles.heroRevealVisible : ''}`}>
             Кабель, автоматика, освещение и комплектующие для электромонтажных работ
           </p>
-          <Link to="/catalog" className={styles.heroBtn}>
+          <Link to="/catalog" className={`${styles.heroBtn} ${styles.heroReveal} ${heroVisible ? styles.heroRevealVisible : ''}`}>
             Перейти в каталог
           </Link>
         </div>
@@ -65,10 +90,20 @@ const Home = () => {
       {/* Features */}
       <section className={styles.section}>
         <div className={styles.container}>
-          <h2 className={styles.sectionTitle}>Почему выбирают нас</h2>
+          <h2
+            ref={featuresTitle.ref}
+            className={`${styles.sectionTitle} ${styles.reveal} ${featuresTitle.isVisible ? styles.revealVisible : ''}`}
+          >
+            Почему выбирают нас
+          </h2>
           <div className={styles.featuresGrid}>
             {features.map((feature, index) => (
-              <div key={index} className={styles.featureCard}>
+              <div
+                key={index}
+                ref={featureRefs[index].ref}
+                className={`${styles.featureCard} ${styles.reveal} ${styles.revealUp} ${featureRefs[index].isVisible ? styles.revealVisible : ''}`}
+                style={{ transitionDelay: `${index * 0.15}s` }}
+              >
                 <div className={styles.featureNumber}>{feature.number}</div>
                 <h3 className={styles.featureTitle}>{feature.title}</h3>
                 <p className={styles.featureText}>{feature.description}</p>
@@ -82,12 +117,23 @@ const Home = () => {
       <section className={styles.sectionGray}>
         <div className={styles.container}>
           <div className={styles.aboutGrid}>
-            <div className={styles.aboutImage}>
+            <div
+              ref={aboutImage.ref}
+              className={`${styles.aboutImage} ${styles.reveal} ${styles.revealLeft} ${aboutImage.isVisible ? styles.revealVisible : ''}`}
+            >
               <img src="/images/gallery/вход.jpg" alt="О компании" />
             </div>
             <div className={styles.aboutContent}>
-              <h2 className={styles.sectionTitle}>Немного о нашей работе !</h2>
-              <p className={styles.aboutText}>
+              <h2
+                ref={aboutTitle.ref}
+                className={`${styles.sectionTitle} ${styles.reveal} ${aboutTitle.isVisible ? styles.revealVisible : ''}`}
+              >
+                Немного о нашей работе !
+              </h2>
+              <p
+                ref={aboutText.ref}
+                className={`${styles.aboutText} ${styles.reveal} ${styles.revealUp} ${aboutText.isVisible ? styles.revealVisible : ''}`}
+              >
                 Мы работаем на рынке электротехники много лет. Ставим надёжность и репутацию выше всего. Наш магазин "Электрика" сотрудничает с монтажными организациями, строительными компаниями и частными мастерами по всей стране.
               </p>
               <p className={styles.aboutText}>
@@ -101,9 +147,17 @@ const Home = () => {
       {/* Gallery */}
       <section className={styles.section}>
         <div className={styles.container}>
-          <h2 className={styles.sectionTitle}>Примеры нашего ассортимента</h2>
+          <h2
+            ref={galleryTitle.ref}
+            className={`${styles.sectionTitle} ${styles.reveal} ${galleryTitle.isVisible ? styles.revealVisible : ''}`}
+          >
+            Примеры нашего ассортимента
+          </h2>
 
-          <div className={`${styles.galleryPreview} ${galleryOpen ? styles.galleryPreviewOpen : ''}`}>
+          <div
+            ref={galleryPreviewReveal.ref}
+            className={`${styles.galleryPreview} ${styles.reveal} ${styles.revealUp} ${galleryPreviewReveal.isVisible ? styles.revealVisible : ''} ${galleryOpen ? styles.galleryPreviewOpen : ''}`}
+          >
             <div className={styles.galleryMain} onClick={() => galleryOpen ? (() => { setCurrentImage(0); setLightboxOpen(true); })() : setGalleryOpen(true)}>
               <img src={previewImages[0]} alt="Наш склад" />
               <div className={styles.galleryOverlay}>
@@ -190,13 +244,31 @@ const Home = () => {
       {/* CTA */}
       <section className={styles.sectionSmall}>
         <div className={styles.container}>
-          <h2 className={styles.sectionTitle} style={{ marginBottom: '24px', fontSize: '1.6rem' }}>Нужна помощь с выбором?</h2>
+          <h2
+            ref={ctaTitle.ref}
+            className={`${styles.sectionTitle} ${styles.reveal} ${ctaTitle.isVisible ? styles.revealVisible : ''}`}
+            style={{ marginBottom: '24px', fontSize: '1.6rem' }}
+          >
+            Нужна помощь с выбором?
+          </h2>
           
           <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
-            <p className={styles.aboutText} style={{ marginBottom: '28px' }}>Затрудняетесь с подбором или не нашли нужный товар? Напишите нам — мы проконсультируем бесплатно.</p>
-            <Link to="/requests" className={styles.heroBtn}>
-              Связаться с нами
-            </Link>
+            <p
+              ref={ctaText.ref}
+              className={`${styles.aboutText} ${styles.reveal} ${styles.revealUp} ${ctaText.isVisible ? styles.revealVisible : ''}`}
+              style={{ marginBottom: '28px' }}
+            >
+              Затрудняетесь с подбором или не нашли нужный товар? Напишите нам — мы проконсультируем бесплатно.
+            </p>
+            <div
+              ref={ctaBtn.ref}
+              className={`${styles.reveal} ${styles.revealUp} ${ctaBtn.isVisible ? styles.revealVisible : ''}`}
+              style={{ transitionDelay: '0.2s' }}
+            >
+              <Link to="/requests" className={styles.heroBtn}>
+                Связаться с нами
+              </Link>
+            </div>
           </div>
         </div>
       </section>

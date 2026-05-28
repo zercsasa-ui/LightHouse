@@ -88,6 +88,10 @@ import Toast from '../components/Toast';
     setPanOffset({ x: 0, y: 0 });
   };
 
+  const handleCenterView = () => {
+    setPanOffset({ x: 0, y: 0 });
+  };
+
   // Обработка колёсика мыши для зума
   const handleWheel = (e) => {
     e.preventDefault();
@@ -384,21 +388,30 @@ import Toast from '../components/Toast';
       ctx.scale(zoom, zoom);
       ctx.translate(-displayWidth / 2 + panOffset.x / zoom, -displayHeight / 2 + panOffset.y / zoom);
 
-      // Отрисовка сетки
+      // Расчёт видимых границ в мировых координатах (с учётом zoom и pan)
+      const worldXMin = (-displayWidth / 2) / zoom + displayWidth / 2 - panOffset.x / zoom;
+      const worldYMin = (-displayHeight / 2) / zoom + displayHeight / 2 - panOffset.y / zoom;
+      const worldXMax = (displayWidth / 2) / zoom + displayWidth / 2 - panOffset.x / zoom;
+      const worldYMax = (displayHeight / 2) / zoom + displayHeight / 2 - panOffset.y / zoom;
+
+      // Отрисовка сетки — выравниваем по шагу scale
       ctx.strokeStyle = isDarkTheme ? '#2d3748' : '#e0e0e0';
       ctx.lineWidth = 1;
 
-      for (let x = 0; x <= displayWidth; x += scale) {
+      const gridStartX = Math.floor(worldXMin / scale) * scale;
+      const gridStartY = Math.floor(worldYMin / scale) * scale;
+
+      for (let x = gridStartX; x <= worldXMax; x += scale) {
         ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, displayHeight);
+        ctx.moveTo(x, worldYMin);
+        ctx.lineTo(x, worldYMax);
         ctx.stroke();
       }
 
-      for (let y = 0; y <= displayHeight; y += scale) {
+      for (let y = gridStartY; y <= worldYMax; y += scale) {
         ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(displayWidth, y);
+        ctx.moveTo(worldXMin, y);
+        ctx.lineTo(worldXMax, y);
         ctx.stroke();
       }
 
@@ -1387,6 +1400,14 @@ import Toast from '../components/Toast';
                 disabled={zoom <= 0.5}
               >
                 −
+              </button>
+              <button 
+                className={styles.zoomBtn}
+                onClick={handleCenterView}
+                title="Вернуться в центр"
+                style={{ fontSize: '14px', lineHeight: 1 }}
+              >
+                ⌖
               </button>
             </div>
             

@@ -1,3 +1,23 @@
+/* Анимации появления при скролле */
+.reveal {
+  opacity: 0;
+  transition: opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.revealVisible {
+  opacity: 1;
+  transform: translateY(0) translateX(0) !important;
+}
+
+.revealUp {
+  transform: translateY(40px);
+}
+
+.revealLeft {
+  transform: translateX(-40px);
+}
+
 /* Общие стили */
 .homeContainer {
   width: 100%;
@@ -60,13 +80,32 @@
   position: relative;
 }
 
+/* Анимация появления Hero-секции при загрузке */
+.heroReveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.heroRevealVisible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.heroSubtitle.heroReveal {
+  transition-delay: 0.15s;
+}
+
+.heroBtn.heroReveal {
+  transition-delay: 0.3s;
+}
+
 /* Hero секция */
 .hero {
   height: 90vh;
   min-height: 550px;
   max-height: 1000px;
-  background: linear-gradient(90deg, rgba(15, 23, 42, 0.8) 0%, rgba(15, 23, 42, 0.4) 60%, transparent),
-    url('../../public/images/gallery/красивыеЛампочки.jpg') right/cover no-repeat;
   display: flex;
   align-items: center;
   color: white;
@@ -78,6 +117,20 @@
   border-bottom-right-radius: 40px;
 }
 
+/* Фоновое изображение с анимацией масштабирования */
+.heroBg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(15, 23, 42, 0.8) 0%, rgba(15, 23, 42, 0.4) 60%, transparent),
+    url('../../public/images/gallery/красивыеЛампочки.jpg') right/cover no-repeat;
+  transform: scale(1.15);
+  transition: transform 1.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.heroBgVisible {
+  transform: scale(1);
+}
+
 .hero::before {
   content: '';
   position: absolute;
@@ -85,6 +138,7 @@
   left: 0;
   right: 0;
   height: 30px;
+  z-index: 1;
   background: linear-gradient(var(--bg-primary), transparent);
 }
 
@@ -95,6 +149,7 @@
   left: 0;
   right: 0;
   height: 45px;
+  z-index: 1;
   background: linear-gradient(transparent, var(--bg-primary));
 }
 

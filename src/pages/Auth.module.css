@@ -159,6 +159,109 @@
   font-weight: 500;
 }
 
+.agreementGroup {
+  margin-top: 4px;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  position: relative;
+}
+
+.checkboxInput {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.checkboxCustom {
+  min-width: 20px;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  transition: all 0.2s ease;
+  margin-top: 1px;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.checkboxInput:checked + .checkboxCustom {
+  background-color: #0d9488;
+  border-color: #0d9488;
+}
+
+.checkboxInput:checked + .checkboxCustom::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 6px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.checkboxInput:focus-visible + .checkboxCustom {
+  outline: 2px solid #0d9488;
+  outline-offset: 2px;
+}
+
+.agreementText {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  position: relative;
+}
+
+.agreementLink {
+  color: #0d9488;
+  text-decoration: underline;
+  cursor: pointer;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.agreementLink:hover {
+  color: #0f766e;
+}
+
+.tooltip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1f2937;
+  color: #f9fafb;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  width: 320px;
+  max-width: 80vw;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  pointer-events: none;
+  text-align: left;
+  font-weight: 400;
+}
+
+.tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 8px solid transparent;
+  border-top-color: #1f2937;
+}
+
 /* Адаптив для 720px и меньше */
 @media (max-width: 720px) {
   .authContainer {
@@ -254,6 +357,12 @@
     font-size: 0.85rem;
   }
 
+  .tooltip {
+    width: 260px;
+    font-size: 0.75rem;
+    padding: 10px 12px;
+  }
+
   .errorMessage,
   .successMessage {
     padding: 10px 12px;
@@ -305,6 +414,16 @@
 
   .authSwitch {
     font-size: 0.8rem;
+  }
+
+  .tooltip {
+    width: 220px;
+    font-size: 0.7rem;
+    padding: 8px 10px;
+  }
+
+  .tooltip::after {
+    border-width: 6px;
   }
 
   .errorMessage,

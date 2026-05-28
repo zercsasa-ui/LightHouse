@@ -12,6 +12,8 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [agreed, setAgreed] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
   const { login, register, user } = useAuth();
   const navigate = useNavigate();
 
@@ -103,6 +105,10 @@ const Auth = () => {
       } else {
         if (!email.trim() || !password || !name.trim()) {
           throw new Error('Заполните все поля');
+        }
+
+        if (!agreed) {
+          throw new Error('Необходимо согласие на обработку персональных данных');
         }
 
         const sanitizedName = sanitizeInput(name);
@@ -199,10 +205,48 @@ const Auth = () => {
             />
           </div>
           
+          {!isLogin && (
+            <div className={styles.agreementGroup}>
+              <label className={styles.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={agreed}
+                  onChange={(e) => setAgreed(e.target.checked)}
+                  className={styles.checkboxInput}
+                  required
+                />
+                <span className={styles.checkboxCustom} />
+                <span
+                  className={styles.agreementText}
+                  onMouseEnter={() => setShowTooltip(true)}
+                  onMouseLeave={() => setShowTooltip(false)}
+                >
+                  Я согласен на{' '}
+                  <a
+                    href="https://www.consultant.ru/document/cons_doc_LAW_61801/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={styles.agreementLink}
+                  >
+                    обработку персональных данных
+                  </a>
+                  {showTooltip && (
+                    <span className={styles.tooltip}>
+                      Нажимая «Зарегистрироваться», вы даёте согласие на сбор, хранение и обработку
+                      ваших персональных данных (ФИО, email, никнейм) в соответствии с Федеральным
+                      законом № 152-ФЗ «О персональных данных». Ваши данные используются только для
+                      создания и поддержки учётной записи на сайте и не передаются третьим лицам.
+                    </span>
+                  )}
+                </span>
+              </label>
+            </div>
+          )}
+
           <button 
             type="submit" 
             className={styles.authButton}
-            disabled={loading}
+            disabled={loading || (!isLogin && !agreed)}
           >
             {loading ? 'Загрузка...' : (isLogin ? 'Войти' : 'Зарегистрироваться')}
           </button>

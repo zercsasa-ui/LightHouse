@@ -22,6 +22,7 @@
   flex-wrap: wrap;
   flex-shrink: 0;
   align-items: center;
+  width: 97%;
 }
 
 .legendRow {
