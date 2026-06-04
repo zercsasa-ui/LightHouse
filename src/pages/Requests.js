@@ -113,7 +113,7 @@ const Requests = () => {
 
   useEffect(() => {
     if (product) {
-      setMessage(`Интересует товар: ${product.name}\nЦена: ${product.price} ₽`);
+      setMessage(`${product.name} - ${product.price} ₽`);
     }
   }, [product]);
 

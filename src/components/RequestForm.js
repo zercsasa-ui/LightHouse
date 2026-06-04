@@ -6,26 +6,52 @@ import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 import styles from './RequestForm.module.css';
 
+const PRODUCT_TEMPLATE = `Интересует товар:
+Количество:
+Дополнительная информация:`;
+
+const SERVICE_TEMPLATE = `Требуется услуга:
+Описание работ:
+Адрес объекта:
+Удобное время для визита:`;
+
 const RequestForm = ({ initialMessage = '', onSuccess }) => {
   const [phone, setPhone] = useState('');
   const [message, setMessage] = useState(initialMessage);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
 
   // Обновляем поле сообщения когда меняется initialMessage из пропсов
   useEffect(() => {
-    setMessage(initialMessage);
+    if (initialMessage) {
+      setSelectedTemplate('product');
+      setMessage(`Интересует товар: ${initialMessage}\n\nКоличество:\nДополнительная информация:`);
+    } else {
+      setMessage(initialMessage);
+    }
   }, [initialMessage]);
+
   const [loading, setLoading] = useState(false);
   const [successModal, setSuccessModal] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
   const [phoneError, setPhoneError] = useState('');
-  const maxMessageLength = 300;
+  const maxMessageLength = 800;
 
   // Валидация номера телефона (проверяем длину после очистки)
   const validatePhone = (phoneNumber) => {
     const cleanNumber = phoneNumber.replace(/\D/g, '');
     // Минимум 10 цифр для валидного номера
     return cleanNumber.length >= 10;
+  };
+
+  const handleTemplateClick = (template) => {
+    if (selectedTemplate === template) {
+      setSelectedTemplate(null);
+      setMessage('');
+    } else {
+      setSelectedTemplate(template);
+      setMessage(template === 'product' ? PRODUCT_TEMPLATE : SERVICE_TEMPLATE);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -58,6 +84,7 @@ const RequestForm = ({ initialMessage = '', onSuccess }) => {
       
       setPhone('');
       setMessage('');
+      setSelectedTemplate(null);
       setSuccessModal(true);
       
       if (onSuccess) {
@@ -79,6 +106,26 @@ const RequestForm = ({ initialMessage = '', onSuccess }) => {
         </div>
       ) : (
         <form className={styles.requestForm} onSubmit={handleSubmit}>
+          {/* Переключатель шаблонов */}
+          {!initialMessage && (
+            <div className={styles.templateSelector}>
+              <button
+                type="button"
+                className={`${styles.templateBtn} ${selectedTemplate === 'product' ? styles.templateBtnActive : ''}`}
+                onClick={() => handleTemplateClick('product')}
+              >
+                Для товара
+              </button>
+              <button
+                type="button"
+                className={`${styles.templateBtn} ${selectedTemplate === 'service' ? styles.templateBtnActive : ''}`}
+                onClick={() => handleTemplateClick('service')}
+              >
+                Для услуги
+              </button>
+            </div>
+          )}
+
           <div className={styles.formGroup}>
             <label>Телефон для связи *</label>
             <PhoneInput

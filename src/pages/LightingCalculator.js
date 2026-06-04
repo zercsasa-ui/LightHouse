@@ -68,6 +68,10 @@ import Toast from '../components/Toast';
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 }); // Смещение при панорамировании
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [isTouchPanning, setIsTouchPanning] = useState(false);
+  const [touchPanStart, setTouchPanStart] = useState({ x: 0, y: 0 });
+  const [touchPanOffsetStart, setTouchPanOffsetStart] = useState({ x: 0, y: 0 });
+  const [lastTouchPinchDist, setLastTouchPinchDist] = useState(null);
 
   // Функция для показа уведомления
   const showToast = (message, type = 'info') => {
@@ -1444,10 +1448,64 @@ import Toast from '../components/Toast';
                   handlePointerUp(e);
                 }
               }}
-              onTouchStart={handlePointerDown}
-              onTouchMove={handlePointerMove}
-              onTouchEnd={handlePointerUp}
-              onTouchCancel={handlePointerUp}
+              onTouchStart={(e) => {
+                if (e.touches.length === 2) {
+                  // Пинч для зума — двумя пальцами
+                  e.preventDefault();
+                  const dx = e.touches[0].clientX - e.touches[1].clientX;
+                  const dy = e.touches[0].clientY - e.touches[1].clientY;
+                  setLastTouchPinchDist(Math.sqrt(dx * dx + dy * dy));
+                } else if (e.touches.length === 1) {
+                  // Одним пальцем — пробуем панорамирование, если не на объекте
+                  const coords = getCoords(e);
+                  const lamp = findLampAtPosition(coords.x, coords.y);
+                  const room = findRoomAtPosition(coords.x, coords.y);
+                  
+                  if (!lamp && !room && activeTool === TOOLS.CURSOR) {
+                    // Ничего не нашли — начинаем панорамирование
+                    setIsTouchPanning(true);
+                    setTouchPanStart({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+                    setTouchPanOffsetStart({ ...panOffset });
+                    e.preventDefault();
+                    e.stopPropagation();
+                  } else {
+                    // Нашли объект — стандартное поведение
+                    handlePointerDown(e);
+                  }
+                } else {
+                  handlePointerDown(e);
+                }
+              }}
+              onTouchMove={(e) => {
+                if (isTouchPanning && e.touches.length === 1) {
+                  e.preventDefault();
+                  setPanOffset({
+                    x: touchPanOffsetStart.x + (e.touches[0].clientX - touchPanStart.x),
+                    y: touchPanOffsetStart.y + (e.touches[0].clientY - touchPanStart.y)
+                  });
+                } else if (lastTouchPinchDist !== null && e.touches.length === 2) {
+                  // Пинч-зум
+                  e.preventDefault();
+                  const dx = e.touches[0].clientX - e.touches[1].clientX;
+                  const dy = e.touches[0].clientY - e.touches[1].clientY;
+                  const newDist = Math.sqrt(dx * dx + dy * dy);
+                  const delta = (newDist - lastTouchPinchDist) * 0.005;
+                  setZoom(prev => Math.max(0.5, Math.min(prev + delta, 3)));
+                  setLastTouchPinchDist(newDist);
+                } else {
+                  handlePointerMove(e);
+                }
+              }}
+              onTouchEnd={(e) => {
+                setIsTouchPanning(false);
+                setLastTouchPinchDist(null);
+                handlePointerUp(e);
+              }}
+              onTouchCancel={(e) => {
+                setIsTouchPanning(false);
+                setLastTouchPinchDist(null);
+                handlePointerUp(e);
+              }}
               style={{
                 cursor: isPanning ? 'grabbing' : activeTool === TOOLS.CURSOR ? 'default' : 'crosshair'
               }}

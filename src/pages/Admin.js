@@ -47,11 +47,45 @@ const Admin = () => {
   const [resizeHandle, setResizeHandle] = useState(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
+  const [cropTemplate, setCropTemplate] = useState('3-4');
 
-  // Фиксированные размеры для всех фотографий товаров
-  const TARGET_ASPECT_RATIO = 3 / 4;
-  const FINAL_IMAGE_WIDTH = 600;
-  const FINAL_IMAGE_HEIGHT = 800;
+  // Шаблоны обрезки
+  const CROP_TEMPLATES = {
+    '3-4':  { ratio: 3 / 4, width: 600, height: 800 },
+    '1-1':  { ratio: 1,     width: 600, height: 600 },
+    '4-3':  { ratio: 4 / 3, width: 800, height: 600 },
+    '16-9': { ratio: 16 / 9, width: 960, height: 540 },
+  };
+
+  // Получить текущий шаблон обрезки
+  const getCurrentTemplate = () => {
+    return CROP_TEMPLATES[cropTemplate] || CROP_TEMPLATES['3-4'];
+  };
+
+  // При смене шаблона сразу пересчитываем рамку выделения
+  useEffect(() => {
+    if (!imageDimensions.width || !imageDimensions.height) return;
+    const tpl = getCurrentTemplate();
+    const width = imageDimensions.width;
+    const height = imageDimensions.height;
+    let selectionWidth, selectionHeight;
+
+    if (width / height > tpl.ratio) {
+      selectionHeight = height * 0.8;
+      selectionWidth = selectionHeight * tpl.ratio;
+    } else {
+      selectionWidth = width * 0.8;
+      selectionHeight = selectionWidth / tpl.ratio;
+    }
+
+    setCropSelection({
+      x: (width - selectionWidth) / 2,
+      y: (height - selectionHeight) / 2,
+      width: selectionWidth,
+      height: selectionHeight
+    });
+  }, [cropTemplate, imageDimensions.width, imageDimensions.height]);
+
   const [globalViewMode, setGlobalViewMode] = useState('list');
   const [productForm, setProductForm] = useState({
     name: '',
@@ -520,14 +554,15 @@ const Admin = () => {
     setImageDimensions({ width, height });
 
     // Рассчитываем размер рамки выбора по центру с правильным соотношением
+    const tpl = getCurrentTemplate();
     let selectionWidth, selectionHeight;
 
-    if (width / height > TARGET_ASPECT_RATIO) {
+    if (width / height > tpl.ratio) {
       selectionHeight = height * 0.8;
-      selectionWidth = selectionHeight * TARGET_ASPECT_RATIO;
+      selectionWidth = selectionHeight * tpl.ratio;
     } else {
       selectionWidth = width * 0.8;
-      selectionHeight = selectionWidth / TARGET_ASPECT_RATIO;
+      selectionHeight = selectionWidth / tpl.ratio;
     }
 
     setCropSelection({
@@ -548,13 +583,15 @@ const Admin = () => {
     if (target.classList.contains(styles.cropResizeHandle)) {
       setIsResizing(true);
       setResizeHandle(target.dataset.corner);
+      const tpl = getCurrentTemplate();
       setDragStart({
         x: e.clientX,
         y: e.clientY,
         selectionX: cropSelection.x,
         selectionY: cropSelection.y,
         selectionWidth: cropSelection.width,
-        selectionHeight: cropSelection.height
+        selectionHeight: cropSelection.height,
+        ratio: tpl.ratio
       });
     } else {
       setIsDragging(true);
@@ -583,6 +620,7 @@ const Admin = () => {
     if (isResizing) {
       const deltaX = e.clientX - dragStart.x;
       const deltaY = e.clientY - dragStart.y;
+      const RATIO = dragStart.ratio || (3 / 4);
 
       let newWidth = dragStart.selectionWidth;
       let newHeight = dragStart.selectionHeight;
@@ -592,22 +630,22 @@ const Admin = () => {
       if (resizeHandle === 'br') {
         const scale = Math.min(deltaX / dragStart.selectionWidth, deltaY / dragStart.selectionHeight);
         newWidth = Math.max(100, dragStart.selectionWidth * (1 + scale));
-        newHeight = newWidth / TARGET_ASPECT_RATIO;
+        newHeight = newWidth / RATIO;
       } else if (resizeHandle === 'tl') {
         const scale = Math.min(-deltaX / dragStart.selectionWidth, -deltaY / dragStart.selectionHeight);
         newWidth = Math.max(100, dragStart.selectionWidth * (1 + scale));
-        newHeight = newWidth / TARGET_ASPECT_RATIO;
+        newHeight = newWidth / RATIO;
         newX = dragStart.selectionX + (dragStart.selectionWidth - newWidth);
         newY = dragStart.selectionY + (dragStart.selectionHeight - newHeight);
       } else if (resizeHandle === 'tr') {
         const scale = Math.min(deltaX / dragStart.selectionWidth, -deltaY / dragStart.selectionHeight);
         newWidth = Math.max(100, dragStart.selectionWidth * (1 + scale));
-        newHeight = newWidth / TARGET_ASPECT_RATIO;
+        newHeight = newWidth / RATIO;
         newY = dragStart.selectionY + (dragStart.selectionHeight - newHeight);
       } else if (resizeHandle === 'bl') {
         const scale = Math.min(-deltaX / dragStart.selectionWidth, deltaY / dragStart.selectionHeight);
         newWidth = Math.max(100, dragStart.selectionWidth * (1 + scale));
-        newHeight = newWidth / TARGET_ASPECT_RATIO;
+        newHeight = newWidth / RATIO;
         newX = dragStart.selectionX + (dragStart.selectionWidth - newWidth);
       }
 
@@ -627,10 +665,10 @@ const Admin = () => {
       }
 
       const finalRatio = newWidth / newHeight;
-      if (finalRatio > TARGET_ASPECT_RATIO) {
-        newWidth = newHeight * TARGET_ASPECT_RATIO;
+      if (finalRatio > RATIO) {
+        newWidth = newHeight * RATIO;
       } else {
-        newHeight = newWidth / TARGET_ASPECT_RATIO;
+        newHeight = newWidth / RATIO;
       }
 
       if (newX + newWidth > imageDimensions.width) {
@@ -641,7 +679,7 @@ const Admin = () => {
       }
 
       newWidth = Math.max(100, newWidth);
-      newHeight = Math.max(133, newHeight);
+      newHeight = Math.max(100 / RATIO, newHeight);
 
       setCropSelection({
         x: newX,
@@ -675,9 +713,10 @@ const Admin = () => {
 
       const scaleX = img.naturalWidth / imageDimensions.width;
       const scaleY = img.naturalHeight / imageDimensions.height;
+      const tpl = getCurrentTemplate();
 
-      canvas.width = FINAL_IMAGE_WIDTH;
-      canvas.height = FINAL_IMAGE_HEIGHT;
+      canvas.width = tpl.width;
+      canvas.height = tpl.height;
 
       ctx.drawImage(
         img,
@@ -687,8 +726,8 @@ const Admin = () => {
         cropSelection.height * scaleY,
         0,
         0,
-        FINAL_IMAGE_WIDTH,
-        FINAL_IMAGE_HEIGHT
+        tpl.width,
+        tpl.height
       );
 
       const blob = await new Promise((resolve) => {
@@ -706,7 +745,7 @@ const Admin = () => {
         .from('products')
         .getPublicUrl(fileName);
 
-      setProductForm({ ...productForm, image_url: publicUrl });
+      setProductForm(prev => ({ ...prev, image_url: publicUrl }));
       setShowCropper(false);
       setOriginalImage(null);
 
@@ -1151,7 +1190,7 @@ const Admin = () => {
             productDateFrom={productDateFrom}
             setProductDateFrom={setProductDateFrom}
             productDateTo={productDateTo}
-            setProductDateTo={setProductDateTo}
+            setProductDateTo={productDateTo}
           />
         </div>
       )}
@@ -1188,6 +1227,9 @@ const Admin = () => {
             handleUpdateParameter={handleUpdateParameter}
             handleEditParameter={handleEditParameter}
             handleDeleteParameter={handleDeleteParameter}
+            // Режим отображения
+            globalViewMode={globalViewMode}
+            setGlobalViewMode={setGlobalViewMode}
           />
         </div>
       )}
@@ -1336,6 +1378,8 @@ const Admin = () => {
         handleCropMouseMove={handleCropMouseMove}
         handleCropMouseUp={handleCropMouseUp}
         handleCropperImageLoad={handleCropperImageLoad}
+        cropTemplate={cropTemplate}
+        setCropTemplate={setCropTemplate}
       />
     </div>
   );

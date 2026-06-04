@@ -67,7 +67,7 @@
 .productMainImage {
   width: 100%;
   max-width: 380px;
-  aspect-ratio: 3/4;
+  aspect-ratio: var(--img-ratio, 3/4);
   object-fit: contain;
   border-radius: 12px;
   transition: transform 0.3s ease;

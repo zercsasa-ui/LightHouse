@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import useScrollReveal from '../hooks/useScrollReveal';
+import HomeLightbox from '../components/HomeLightbox';
 import styles from './Home.module.css';
 
 const Home = () => {
@@ -199,44 +200,15 @@ const Home = () => {
             </button>
           )}
 
-          {/* Lightbox модалка */}
-          {lightboxOpen && (
-            <div className={styles.lightbox} onClick={() => setLightboxOpen(false)}>
-              <button
-                className={`${styles.lightboxBtn} ${styles.lightboxPrev}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCurrentImage(prev => prev === 0 ? [...previewImages, ...galleryImages].length - 1 : prev - 1);
-                }}
-              >
-                ←
-              </button>
-
-              <div className={styles.lightboxImage} onClick={(e) => e.stopPropagation()}>
-                <img src={[...previewImages, ...galleryImages][currentImage]} alt={`Ассортимент ${currentImage + 1}`} />
-                <div className={styles.lightboxCounter}>
-                  {currentImage + 1} / {[...previewImages, ...galleryImages].length}
-                </div>
-              </div>
-
-              <button
-                className={`${styles.lightboxBtn} ${styles.lightboxNext}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCurrentImage(prev => prev === [...previewImages, ...galleryImages].length - 1 ? 0 : prev + 1);
-                }}
-              >
-                →
-              </button>
-
-              <button
-                className={styles.lightboxClose}
-                onClick={() => setLightboxOpen(false)}
-              >
-                ✕
-              </button>
-            </div>
-          )}
+          {/* Lightbox модалка — рендерится через портал в body */}
+          <HomeLightbox
+            isOpen={lightboxOpen}
+            onClose={() => setLightboxOpen(false)}
+            currentImage={currentImage}
+            setCurrentImage={setCurrentImage}
+            previewImages={previewImages}
+            galleryImages={galleryImages}
+          />
 
         </div>
       </section>

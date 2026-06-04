@@ -29,7 +29,10 @@ const CategoriesSection = ({
   handleCreateParameter,
   handleUpdateParameter,
   handleEditParameter,
-  handleDeleteParameter
+  handleDeleteParameter,
+  // Режим отображения
+  globalViewMode,
+  setGlobalViewMode
 }) => {
   return (
     <div className={styles.categoriesSection}>
@@ -45,6 +48,14 @@ const CategoriesSection = ({
           />
         </div>
         <span className={styles.searchCount}>Всего: {processedCategories.length}</span>
+
+        <button
+          onClick={() => setGlobalViewMode(globalViewMode === 'list' ? 'grid' : 'list')}
+          className={styles.viewToggleBtn}
+        >
+          <img src="/images/ico/icoMain.png" alt="Вид" className={styles.viewIcon} />
+        </button>
+
         <button
           className={styles.addBtn}
           onClick={() => {
@@ -84,7 +95,7 @@ const CategoriesSection = ({
         </form>
       )}
 
-      <div className={styles.categoriesList}>
+      <div className={`${styles.categoriesList} ${globalViewMode === 'grid' ? styles.categoriesGrid : ''}`}>
         {processedCategories.map(cat => (
           <div key={cat.id} className={styles.categoryCard}>
             <div className={styles.categoryInfo}>

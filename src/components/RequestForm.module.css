@@ -186,6 +186,66 @@ html[data-theme="dark"] .phoneInput:focus {
   border: 1px solid var(--accent-color) !important;
 }
 
+/* Переключатель шаблонов */
+.templateSelector {
+  display: flex;
+  gap: 8px;
+}
+
+.templateBtn {
+  flex: 1;
+  padding: 10px 16px;
+  border: 2px solid #dee2e6;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #495057;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.templateBtn:hover {
+  border-color: #141414;
+  color: #141414;
+}
+
+.templateBtnActive {
+  background: #141414;
+  color: #ffffff;
+  border-color: #141414;
+}
+
+.templateBtnActive:hover {
+  background: #2d2d2d;
+  color: #ffffff;
+  border-color: #2d2d2d;
+}
+
+/* Dark mode для шаблонов */
+html[data-theme="dark"] .templateBtn {
+  background: #1f2937;
+  color: #9ca3af;
+  border-color: #374151;
+}
+
+html[data-theme="dark"] .templateBtn:hover {
+  border-color: #e5e7eb;
+  color: #e5e7eb;
+}
+
+html[data-theme="dark"] .templateBtnActive {
+  background: #e5e7eb;
+  color: #1f2937;
+  border-color: #e5e7eb;
+}
+
+html[data-theme="dark"] .templateBtnActive:hover {
+  background: #ffffff;
+  color: #1f2937;
+  border-color: #ffffff;
+}
+
 /* Модальное окно */
 .modalOverlay {
   position: fixed;

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import { useAuth } from '../context/AuthContext';
+import ProductImageModal from '../components/ProductImageModal';
 import styles from './Product.module.css';
 
 const INITIAL_VISIBLE = 4;
@@ -68,6 +69,18 @@ const Product = ({ isSidebarCollapsed }) => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [showImageModal, setShowImageModal] = useState(false);
+
+  // Блокировка скролла при открытой модалке изображения
+  useEffect(() => {
+    if (showImageModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showImageModal]);
   const [topCategoryProducts, setTopCategoryProducts] = useState([]);
   const [latestProducts, setLatestProducts] = useState([]);
   const [viewedProducts, setViewedProducts] = useState([]);
@@ -420,6 +433,15 @@ const Product = ({ isSidebarCollapsed }) => {
             alt={product.name}
             className={styles.productMainImage}
             onClick={() => setShowImageModal(true)}
+            onLoad={(e) => {
+              // Добавляем CSS-переменную для aspect ratio
+              const img = e.target;
+              const wrapper = img.closest(`.${styles.productImageWrapper}`);
+              if (wrapper && img.naturalWidth && img.naturalHeight) {
+                const ratio = img.naturalWidth / img.naturalHeight;
+                wrapper.style.setProperty('--img-ratio', ratio);
+              }
+            }}
           />
         </div>
 
@@ -480,7 +502,6 @@ const Product = ({ isSidebarCollapsed }) => {
             <button
               className={styles.requestBtn}
               onClick={() => navigate('/requests', { state: { product } })}
-              disabled={product.stock <= 0}
             >
               Оставить заявку
             </button>
@@ -682,40 +703,13 @@ const Product = ({ isSidebarCollapsed }) => {
         </div>
       )}
 
-      {showImageModal && (
-        <div className={styles.imageModal} onClick={() => setShowImageModal(false)}>
-
-          <button
-            className={`${styles.imageModalBtn} ${styles.imageModalPrev}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              // Тут можно будет добавить переключение между фото товара
-            }}
-          >
-            ←
-          </button>
-
-          <div className={styles.imageModalImage} onClick={(e) => e.stopPropagation()}>
-            <img
-              src={product.image_url || 'https://via.placeholder.com/600x400'}
-              alt={product.name}
-            />
-          </div>
-
-          <button
-            className={`${styles.imageModalBtn} ${styles.imageModalNext}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              // Тут можно будет добавить переключение между фото товара
-            }}
-          >
-            →
-          </button>
-
-          <button className={styles.imageModalClose} onClick={() => setShowImageModal(false)}>✕</button>
-
-        </div>
-      )}
+      {/* Модальное окно с изображением товара — рендерится через портал в body */}
+      <ProductImageModal
+        show={showImageModal}
+        onClose={() => setShowImageModal(false)}
+        imageUrl={product.image_url}
+        productName={product.name}
+      />
 
       {/* Лучшее из этой категории */}
       {topCategoryProducts.length > 0 && (
