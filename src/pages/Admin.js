@@ -12,6 +12,14 @@ import UsersSection from '../components/admin/UsersSection';
 import QuestionsSection from '../components/admin/QuestionsSection';
 import ImageCropper from '../components/admin/ImageCropper';
 
+// Шаблоны обрезки (вне компонента для стабильной ссылки)
+const CROP_TEMPLATES = {
+  '3-4':  { ratio: 3 / 4, width: 600, height: 800 },
+  '1-1':  { ratio: 1,     width: 600, height: 600 },
+  '4-3':  { ratio: 4 / 3, width: 800, height: 600 },
+  '16-9': { ratio: 16 / 9, width: 960, height: 540 },
+};
+
 const Admin = () => {
   const [expandedMessages, setExpandedMessages] = useState({});
   const [expandedDescriptions, setExpandedDescriptions] = useState({});
@@ -49,23 +57,10 @@ const Admin = () => {
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
   const [cropTemplate, setCropTemplate] = useState('3-4');
 
-  // Шаблоны обрезки
-  const CROP_TEMPLATES = {
-    '3-4':  { ratio: 3 / 4, width: 600, height: 800 },
-    '1-1':  { ratio: 1,     width: 600, height: 600 },
-    '4-3':  { ratio: 4 / 3, width: 800, height: 600 },
-    '16-9': { ratio: 16 / 9, width: 960, height: 540 },
-  };
-
-  // Получить текущий шаблон обрезки
-  const getCurrentTemplate = () => {
-    return CROP_TEMPLATES[cropTemplate] || CROP_TEMPLATES['3-4'];
-  };
-
   // При смене шаблона сразу пересчитываем рамку выделения
   useEffect(() => {
     if (!imageDimensions.width || !imageDimensions.height) return;
-    const tpl = getCurrentTemplate();
+    const tpl = CROP_TEMPLATES[cropTemplate] || CROP_TEMPLATES['3-4'];
     const width = imageDimensions.width;
     const height = imageDimensions.height;
     let selectionWidth, selectionHeight;
@@ -108,7 +103,6 @@ const Admin = () => {
   const [productCategory, setProductCategory] = useState('');
   const [productActive, setProductActive] = useState('');
   const [productDateFrom, setProductDateFrom] = useState('');
-  const [productDateTo, setProductDateTo] = useState('');
 
   // Состояния для категорий
   const [showCategoryForm, setShowCategoryForm] = useState(false);
@@ -186,11 +180,6 @@ const Admin = () => {
       const fromDate = new Date(productDateFrom);
       fromDate.setHours(0, 0, 0, 0);
       if (new Date(prod.created_at) < fromDate) return false;
-    }
-    if (productDateTo) {
-      const toDate = new Date(productDateTo);
-      toDate.setHours(23, 59, 59, 999);
-      if (new Date(prod.created_at) > toDate) return false;
     }
 
     return true;
@@ -554,7 +543,7 @@ const Admin = () => {
     setImageDimensions({ width, height });
 
     // Рассчитываем размер рамки выбора по центру с правильным соотношением
-    const tpl = getCurrentTemplate();
+    const tpl = CROP_TEMPLATES[cropTemplate] || CROP_TEMPLATES['3-4'];
     let selectionWidth, selectionHeight;
 
     if (width / height > tpl.ratio) {
@@ -583,7 +572,7 @@ const Admin = () => {
     if (target.classList.contains(styles.cropResizeHandle)) {
       setIsResizing(true);
       setResizeHandle(target.dataset.corner);
-      const tpl = getCurrentTemplate();
+      const tpl = CROP_TEMPLATES[cropTemplate] || CROP_TEMPLATES['3-4'];
       setDragStart({
         x: e.clientX,
         y: e.clientY,
@@ -713,7 +702,7 @@ const Admin = () => {
 
       const scaleX = img.naturalWidth / imageDimensions.width;
       const scaleY = img.naturalHeight / imageDimensions.height;
-      const tpl = getCurrentTemplate();
+      const tpl = CROP_TEMPLATES[cropTemplate] || CROP_TEMPLATES['3-4'];
 
       canvas.width = tpl.width;
       canvas.height = tpl.height;
@@ -1189,8 +1178,6 @@ const Admin = () => {
             setProductSortDate={setProductSortDate}
             productDateFrom={productDateFrom}
             setProductDateFrom={setProductDateFrom}
-            productDateTo={productDateTo}
-            setProductDateTo={productDateTo}
           />
         </div>
       )}
