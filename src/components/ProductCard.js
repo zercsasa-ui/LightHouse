@@ -1,4 +1,4 @@
-import { memo, useRef, useState, useCallback } from 'react';
+import { memo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import { useComparison } from '../context/ComparisonContext';
