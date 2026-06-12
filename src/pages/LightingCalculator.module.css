@@ -381,12 +381,26 @@ html[data-theme="dark"] .legendItemSmall:nth-child(3) {
 .scaleHint {
   position: absolute;
   bottom: 8px;
-  right: 12px;
+  left: 50%;
+  transform: translateX(-50%);
   font-size: 11px;
   color: var(--text-secondary);
   background: var(--bg-primary);
   padding: 3px 6px;
   border-radius: 4px;
+  white-space: nowrap;
+}
+
+.minimap {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  touch-action: none;
 }
 
 /* Кнопки управления зумом */
@@ -487,4 +501,54 @@ html[data-theme="dark"] .toolBtn:not(.activeTool) img {
 }
 html[data-theme="dark"] .activeTool img {
     filter: invert(1) brightness(2);
+}
+
+/* ═══════════════════════════════════════════════
+   Анимация появления карточек (slide-up + fade-in)
+   ═══════════════════════════════════════════════ */
+@keyframes cardSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.controls > .card {
+  animation: cardSlideIn 0.35s ease-out both;
+}
+
+.controls > .card:nth-child(1) { animation-delay: 0.0s; }
+.controls > .card:nth-child(2) { animation-delay: 0.05s; }
+.controls > .card:nth-child(3) { animation-delay: 0.10s; }
+.controls > .card:nth-child(4) { animation-delay: 0.15s; }
+.controls > .card:nth-child(5) { animation-delay: 0.20s; }
+.controls > .card:nth-child(6) { animation-delay: 0.25s; }
+.controls > .card:nth-child(7) { animation-delay: 0.30s; }
+.controls > .card:nth-child(8) { animation-delay: 0.35s; }
+.controls > .card:nth-child(9) { animation-delay: 0.40s; }
+.controls > .card:nth-child(10) { animation-delay: 0.45s; }
+
+/* Пульс при смене данных внутри карточки */
+@keyframes cardPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.3); }
+  70%  { box-shadow: 0 0 0 6px rgba(52, 152, 219, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0); }
+}
+
+.cardPulse {
+  animation: cardPulse 0.5s ease-out;
+}
+
+/* Мини-карта — курсор наведения */
+.minimap {
+  cursor: pointer;
+}
+
+.minimap:hover {
+  box-shadow: 0 2px 12px rgba(52, 152, 219, 0.3);
+  border-color: var(--accent-color);
 }

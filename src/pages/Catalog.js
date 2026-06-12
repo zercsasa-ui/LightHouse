@@ -3,16 +3,64 @@ import { supabase } from '../supabase';
 import ProductCard from '../components/ProductCard';
 import styles from './Catalog.module.css';
 
+const STORAGE_KEY_FILTERS = 'catalog_filters';
+const STORAGE_KEY_PRODUCTS = 'catalog_products';
+const STORAGE_KEY_CATEGORIES = 'catalog_categories';
+const CACHE_TTL = 60 * 1000; // 1 минута
+
+// Чтение сохранённых фильтров
+const loadFilters = () => {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY_FILTERS);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return null;
+};
+
+// Чтение кэша товаров
+const loadCache = () => {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY_PRODUCTS);
+    if (!raw) return null;
+    const { data, timestamp } = JSON.parse(raw);
+    if (Date.now() - timestamp > CACHE_TTL) {
+      sessionStorage.removeItem(STORAGE_KEY_PRODUCTS);
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
+  }
+};
+
+const loadCategoriesCache = () => {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY_CATEGORIES);
+    if (!raw) return null;
+    const { data, timestamp } = JSON.parse(raw);
+    if (Date.now() - timestamp > CACHE_TTL) {
+      sessionStorage.removeItem(STORAGE_KEY_CATEGORIES);
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
+  }
+};
+
 const Catalog = () => {
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  const savedFilters = loadFilters();
+
+  const [products, setProducts] = useState(() => loadCache() || []);
+  const [categories, setCategories] = useState(() => loadCategoriesCache() || []);
+  const [selectedCategory, setSelectedCategory] = useState(savedFilters?.selectedCategory ?? null);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [minPrice, setMinPrice] = useState('');
-  const [maxPrice, setMaxPrice] = useState('');
-  const [minRating, setMinRating] = useState(0);
-  const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(savedFilters?.searchQuery ?? '');
+  const [minPrice, setMinPrice] = useState(savedFilters?.minPrice ?? '');
+  const [maxPrice, setMaxPrice] = useState(savedFilters?.maxPrice ?? '');
+  const [minRating, setMinRating] = useState(savedFilters?.minRating ?? 0);
+  const [appliedSearchQuery, setAppliedSearchQuery] = useState(savedFilters?.appliedSearchQuery ?? '');
+  const [inStockOnly, setInStockOnly] = useState(savedFilters?.inStockOnly ?? false);
 
   const handleSearch = () => {
     setAppliedSearchQuery(searchQuery);
@@ -24,10 +72,33 @@ const Catalog = () => {
     }
   };
 
+  // Сохранение фильтров в sessionStorage при каждом изменении
+  useEffect(() => {
+    sessionStorage.setItem(STORAGE_KEY_FILTERS, JSON.stringify({
+      selectedCategory,
+      searchQuery,
+      minPrice,
+      maxPrice,
+      minRating,
+      appliedSearchQuery,
+      inStockOnly,
+    }));
+  }, [selectedCategory, searchQuery, minPrice, maxPrice, minRating, appliedSearchQuery, inStockOnly]);
+
   useEffect(() => {
     const abortController = new AbortController();
 
     const fetchData = async () => {
+      // Если данные уже в кэше — не загружаем повторно
+      const cachedProducts = loadCache();
+      const cachedCategories = loadCategoriesCache();
+      if (cachedProducts && cachedCategories) {
+        setProducts(cachedProducts);
+        setCategories(cachedCategories);
+        setLoading(false);
+        return;
+      }
+
       const retryDelay = (attempt) => 1000 * Math.pow(2, attempt);
 
       for (let attempt = 0; attempt < 3; attempt++) {
@@ -36,7 +107,6 @@ const Catalog = () => {
         try {
           const timeoutId = setTimeout(() => abortController.abort(), 10000);
 
-          
           const [productsRes, categoriesRes] = await Promise.all([
             supabase.from('products').select('*, categories(name)').limit(200).order('created_at', { ascending: false }),
             supabase.from('categories').select('*').order('name')
@@ -49,8 +119,15 @@ const Catalog = () => {
           if (productsRes.error) throw productsRes.error;
           if (categoriesRes.error) throw categoriesRes.error;
 
-          setProducts(productsRes.data || []);
-          setCategories(categoriesRes.data || []);
+          const prods = productsRes.data || [];
+          const cats = categoriesRes.data || [];
+
+          setProducts(prods);
+          setCategories(cats);
+
+          // Кэшируем в sessionStorage
+          sessionStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify({ data: prods, timestamp: Date.now() }));
+          sessionStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify({ data: cats, timestamp: Date.now() }));
 
           break;
         } catch (error) {
@@ -73,21 +150,46 @@ const Catalog = () => {
 
     fetchData();
 
-  
     return () => abortController.abort();
   }, []);
+
   let filteredProducts = products;
   // Фильтр по категории
   if (selectedCategory) {
     filteredProducts = filteredProducts.filter(p => p.categories?.name === selectedCategory);
   }
-  // Поиск по названию (только примененный запрос)
+  // Поиск по названию, описанию и артикулу (id товара)
+  // Приоритет: точное совпадение артикула → начало артикула → частичное совпадение артикула → название/описание
   if (appliedSearchQuery.trim()) {
     const query = appliedSearchQuery.toLowerCase();
-    filteredProducts = filteredProducts.filter(p =>
-      p.name?.toLowerCase().includes(query) ||
-      p.description?.toLowerCase().includes(query)
+
+    // Группировка по точности артикулу
+    const exactArticle = filteredProducts.filter(p =>
+      String(p.id) === query
     );
+    const startArticle = filteredProducts.filter(p =>
+      String(p.id).startsWith(query) && String(p.id) !== query
+    );
+    const containArticle = filteredProducts.filter(p =>
+      String(p.id).includes(query) && !String(p.id).startsWith(query)
+    );
+    const articleIds = new Set([
+      ...exactArticle.map(p => p.id),
+      ...startArticle.map(p => p.id),
+      ...containArticle.map(p => p.id),
+    ]);
+    const byName = filteredProducts.filter(p =>
+      !articleIds.has(p.id) && (
+        p.name?.toLowerCase().includes(query) ||
+        p.description?.toLowerCase().includes(query)
+      )
+    );
+    filteredProducts = [...exactArticle, ...startArticle, ...containArticle, ...byName];
+  }
+
+  // Фильтр «Только в наличии»
+  if (inStockOnly) {
+    filteredProducts = filteredProducts.filter(p => p.stock > 0);
   }
   // Фильтр по минимальной цене
   if (minPrice) {
@@ -113,7 +215,7 @@ const Catalog = () => {
           <img src="/images/ico/icoLupa.png" alt="Поиск" className={styles.searchIcon} />
           <input
             type="text"
-            placeholder="Поиск товара..."
+            placeholder="Поиск по названию, артикулу..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -159,6 +261,16 @@ const Catalog = () => {
               ))}
             </div>
           </div>
+
+          <label className={styles.stockFilter}>
+            <input
+              type="checkbox"
+              checked={inStockOnly}
+              onChange={(e) => setInStockOnly(e.target.checked)}
+              className={styles.stockCheckbox}
+            />
+            <span>В наличии</span>
+          </label>
 
           <span className={styles.productsCount}>Найдено: {filteredProducts.length}</span>
         </div>

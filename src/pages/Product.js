@@ -153,13 +153,23 @@ const Product = ({ isSidebarCollapsed }) => {
   };
 
   useEffect(() => {
+    if (!id || id === 'undefined') {
+      setLoading(false);
+      return;
+    }
+
     const fetchProduct = async () => {
       setLoading(true);
       try {
+        const numericId = parseInt(id);
+        if (isNaN(numericId)) {
+          throw new Error('Некорректный ID товара');
+        }
+
         const { data, error } = await supabase
           .from('products')
           .select('*, categories(name)')
-          .eq('id', id)
+          .eq('id', numericId)
           .single();
 
         if (error) throw error;

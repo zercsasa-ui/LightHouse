@@ -1,16 +1,25 @@
-import { memo, useCallback } from 'react';
+import { memo, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import { useComparison } from '../context/ComparisonContext';
 import styles from '../pages/Catalog.module.css';
 
-//   Мемоизированная карточка товара - не перерисовывается при фильтрации
+// Мемоизированная карточка товар товара - не перерисовывается при фильтрации
 const ProductCard = memo(({ product }) => {
   const navigate = useNavigate();
   const { comparisonItems, addToComparison, removeFromComparison } = useComparison();
 
-  //   Предзагрузка товара в кеш при наведении курсора
-  const preloadProduct = useCallback(async () => {
+  // 是否已预加载
+  const preloadedRef = useRef(false);
+  const timerRef = useRef(null);
+
+  const isInComparison = comparisonItems.some(item => item.id === product.id);
+
+  // 预加载
+  const doPreload = useCallback(async () => {
+    if (preloadedRef.current) return;
+    preloadedRef.current = true;
+
     try {
       await supabase
         .from('products')
@@ -24,7 +33,21 @@ const ProductCard = memo(({ product }) => {
     }
   }, [product.id]);
 
-  const isInComparison = comparisonItems.some(item => item.id === product.id);
+  const handleMouseEnter = useCallback(() => {
+    // Отменяем предыдущий таймер, если мышь ушла
+    if (timerRef.current) clearTimeout(timerRef.current);
+
+    // Запускаем предзагрузку через 1 секунду
+    timerRef.current = setTimeout(doPreload, 1000);
+  }, [doPreload]);
+
+  const handleMouseLeave = useCallback(() => {
+    // Отменяем таймер, если мышь ушла раньше 1секунды
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
 
   const handleComparisonToggle = (e) => {
     e.stopPropagation();
@@ -40,16 +63,23 @@ const ProductCard = memo(({ product }) => {
   };
 
   return (
-    <div
+   
+<div
       className={styles.productCard}
       onClick={handleCardClick}
-      onMouseEnter={preloadProduct}
-      onFocus={preloadProduct}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onFocus={doPreload}
       role="link"
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === 'Enter') handleCardClick(); }}
     >
       <div className={styles.imageContainer}>
+        <div
+          className={styles.productImageBg}
+          style={{ backgroundImage: `url(${product.image_url || 'https://via.placeholder.com/300x200'})` }}
+        />
+        <div className={styles.productImageOverlay} />
         <img
           src={product.image_url || 'https://via.placeholder.com/300x200'}
           alt={product.name}

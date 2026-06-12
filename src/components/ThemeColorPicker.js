@@ -161,11 +161,11 @@ const ThemeColorPicker = () => {
       </div>
 
       <button
-        className={styles.rainToggleBtn}
+        className={`${styles.rainToggleBtn} ${isRainActive ? styles.rainActive : ''}`}
         onClick={toggleRain}
-        title="Включить/выключить дождь"
+        title={isRainActive ? 'Выключить дождь' : 'Включить дождь'}
       >
-        <img src="/images/ico/icoRain.png" alt="Rain" className={styles.rainToggleIcon} />
+        <img src="/images/ico/icoRain.png" alt="Rain" className={`${styles.rainToggleIcon} ${isRainActive ? styles.rainIconActive : ''}`} />
       </button>
 
       <RainEffect isActive={isRainActive} />

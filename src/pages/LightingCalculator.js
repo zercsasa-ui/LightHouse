@@ -53,7 +53,8 @@ import Toast from '../components/Toast';
     const [scale] = useState(31); // 1 метр = 45 пикселей
     const [history, setHistory] = useState([]);
     const [showClearWiresModal, setShowClearWiresModal] = useState(false);
-    const [showClearLampsModal, setShowClearLampsModal] = useState(false);
+  const [showClearLampsModal, setShowClearLampsModal] = useState(false);
+  const [showClearRoomsModal, setShowClearRoomsModal] = useState(false);
 
   const [isLoaded, setIsLoaded] = useState(false);
   const [tempDragObject, setTempDragObject] = useState(null);
@@ -72,6 +73,13 @@ import Toast from '../components/Toast';
   const [touchPanStart, setTouchPanStart] = useState({ x: 0, y: 0 });
   const [touchPanOffsetStart, setTouchPanOffsetStart] = useState({ x: 0, y: 0 });
   const [lastTouchPinchDist, setLastTouchPinchDist] = useState(null);
+  const [redoStack, setRedoStack] = useState([]);
+  const [gridSnapEnabled, setGridSnapEnabled] = useState(true);
+  const [pulsePhase, setPulsePhase] = useState(0);
+  const minimapCanvasRef = useRef(null);
+  const animFrameRef = useRef(null);
+  const [lampAnimations, setLampAnimations] = useState([]); // [{x, y, startTime}]
+  const [roomAnimations, setRoomAnimations] = useState([]); // [{x, y, w, h, startTime}]
 
   // Функция для показа уведомления
   const showToast = (message, type = 'info') => {
@@ -126,12 +134,29 @@ import Toast from '../components/Toast';
     setIsPanning(false);
   };
 
+  // Анимация пульсации ламп
+  useEffect(() => {
+    if (lamps.length === 0) return;
+    let running = true;
+    const animate = () => {
+      if (running) {
+        setPulsePhase(Date.now());
+        animFrameRef.current = requestAnimationFrame(animate);
+      }
+    };
+    animFrameRef.current = requestAnimationFrame(animate);
+    return () => {
+      running = false;
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    };
+  }, [lamps.length]);
+
     // Загрузка данных из localStorage при инициализации
     useEffect(() => {
       const savedData = localStorage.getItem('lightingCalculatorState');
       if (savedData) {
         try {
-          const { timestamp, rooms, wires, lamps, history: savedHistory } = JSON.parse(savedData);
+          const { timestamp, rooms, wires, lamps, history: savedHistory, redoStack: savedRedo } = JSON.parse(savedData);
           const ONE_HOUR = 60 * 60 * 1000;
 
           // Если данные не старше 1 часа - восстанавливаем
@@ -140,6 +165,7 @@ import Toast from '../components/Toast';
             setWires(wires);
             setLamps(lamps);
             setHistory(savedHistory);
+            if (savedRedo) setRedoStack(savedRedo);
           }
         } catch (e) {
           console.error('Ошибка восстановления данных калькулятора:', e);
@@ -159,10 +185,11 @@ import Toast from '../components/Toast';
         rooms,
         wires,
         lamps,
-        history
+        history,
+        redoStack
       };
       localStorage.setItem('lightingCalculatorState', JSON.stringify(saveData));
-    }, [rooms, wires, lamps, history, isLoaded]);
+    }, [rooms, wires, lamps, history, redoStack, isLoaded]);
 
     const selectedRoom = rooms.find(r => r.id === selectedRoomId) || rooms[0];
     const selectedLamp = lamps.find(l => l.id === selectedLampId);
@@ -276,6 +303,9 @@ import Toast from '../components/Toast';
     }, [lamps, scale]);
 
     // Автоматический расчёт необходимого количества ламп
+    // Используем формулу: E = (Φ × n × η × Kз) / S
+    // где E — освещённость, Φ — световой поток одной лампы,
+    // n — количество ламп, η — КПД использования света, Kз — коэффициент запаса, S — площадь
     const calculateRequiredLamps = useCallback(() => {
       if (!selectedRoom || !selectedRoom.type) return null;
       
@@ -283,17 +313,66 @@ import Toast from '../components/Toast';
       if (!roomType) return null;
       
       const roomArea = selectedRoom.width * selectedRoom.height;
-      const requiredLumens = roomType.requiredLux * roomArea * safetyFactor;
+      const perimeter = 2 * (selectedRoom.width + selectedRoom.height);
+      const h = selectedRoom.ceilingHeight; // высота потолков
       
-      // Берём среднюю лампу для расчёта
-      const avgLampLumens = 900; // Средняя LED лампа 10Вт
-      const requiredLamps = Math.ceil(requiredLumens / avgLampLumens);
+      // Средний световой поток одной LED лампы (10Вт, 90 лм/Вт)
+      const avgLampLumens = 900;
+      
+      // Индекс помещения: I = S / (h × (a + b))
+      // Характеризует «компактность» помещения
+      const indexJ = roomArea / (h * perimeter / 2);
+      
+      // Коэффициент использования светового потока (КПД)
+      // Для жилых помещений с LED лампами (направленный свет вниз)
+      // Учитывает потери на отражение от стен, поглощение мебелью и т.д.
+      let utilizationFactor;
+      if (indexJ <= 0.6) {
+        utilizationFactor = 0.55;
+      } else if (indexJ <= 0.8) {
+        utilizationFactor = 0.60;
+      } else if (indexJ <= 1.0) {
+        utilizationFactor = 0.65;
+      } else if (indexJ <= 1.25) {
+        utilizationFactor = 0.70;
+      } else if (indexJ <= 1.5) {
+        utilizationFactor = 0.73;
+      } else if (indexJ <= 2.0) {
+        utilizationFactor = 0.76;
+      } else if (indexJ <= 2.5) {
+        utilizationFactor = 0.79;
+      } else if (indexJ <= 3.0) {
+        utilizationFactor = 0.82;
+      } else {
+        utilizationFactor = 0.85;
+      }
+      
+      // Коэффициент запаса (учитывает загрязнение ламп и снижение светового потока со временем)
+      // safetyFactor = 1.0: новый светильник, чистое помещение
+      // safetyFactor = 1.2: нормальные условия
+      // safetyFactor = 1.4: запылённое/грязное помещение
+      const maintenanceFactor = safetyFactor;
+      
+      // Формула расчёта количества ламп:
+      // n = (E × S) / (Φ × η × Kз)
+      const requiredLamps = Math.ceil(
+        (roomType.requiredLux * roomArea) / (avgLampLumens * utilizationFactor * maintenanceFactor)
+      );
+      
+      // Реальный световой поток одной лампы
+      const effectiveLumensPerLamp = Math.round(avgLampLumens * utilizationFactor * maintenanceFactor);
+      
+      // Фактическая освещённость при расчётном количестве ламп
+      const actualLux = Math.round((requiredLamps * effectiveLumensPerLamp) / roomArea);
       
       return {
-        requiredLumens: Math.round(requiredLumens),
+        requiredLumens: Math.round((roomType.requiredLux * roomArea) / (utilizationFactor * maintenanceFactor)),
         requiredLamps,
         avgLampLumens,
-        roomType
+        roomType,
+        utilizationFactor,
+        indexJ: indexJ.toFixed(2),
+        actualLux
       };
     }, [selectedRoom, safetyFactor]);
 
@@ -591,10 +670,23 @@ import Toast from '../components/Toast';
         ctx.stroke();
       });
 
-      // Отрисовка лампочек
+      // Отрисовка лампочек с пульсирующим свечением
       lamps.forEach(lamp => {
         const isSelected = lamp.id === selectedLampId;
 
+        // Пульсирующее свечение
+        const pulse = Math.sin(pulsePhase * 0.003) * 0.5 + 0.5; // 0..1
+        const glowRadius = 20 + pulse * 10;
+        const glow = ctx.createRadialGradient(lamp.x, lamp.y, 0, lamp.x, lamp.y, glowRadius);
+        glow.addColorStop(0, `rgba(241, 196, 15, ${0.35 + pulse * 0.15})`);
+        glow.addColorStop(0.5, `rgba(241, 196, 15, ${0.12 + pulse * 0.08})`);
+        glow.addColorStop(1, 'rgba(241, 196, 15, 0)');
+        ctx.beginPath();
+        ctx.arc(lamp.x, lamp.y, glowRadius, 0, Math.PI * 2);
+        ctx.fillStyle = glow;
+        ctx.fill();
+
+        // Тело лампы
         ctx.beginPath();
         ctx.arc(lamp.x, lamp.y, isSelected ? 12 : 8, 0, Math.PI * 2);
         ctx.fillStyle = '#f1c40f';
@@ -602,6 +694,55 @@ import Toast from '../components/Toast';
         ctx.strokeStyle = isSelected ? '#3498db' : '#f39c12';
         ctx.lineWidth = isSelected ? 3 : 2;
         ctx.stroke();
+      });
+
+      // BAMPH — анимация появления ламп (расширяющаяся вспышка)
+      const now = Date.now();
+      lampAnimations.forEach(anim => {
+        const elapsed = now - anim.startTime;
+        const progress = Math.min(elapsed / 500, 1); // 500ms длительность
+        if (progress >= 1) return;
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+        const radius = easeOut * 50;
+        const alpha = (1 - progress) * 0.5;
+        // Внешнее кольцо
+        ctx.beginPath();
+        ctx.arc(anim.x, anim.y, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(241, 196, 15, ${alpha})`;
+        ctx.lineWidth = 3 * (1 - progress);
+        ctx.stroke();
+        // Внутренняя вспышка
+        const flash = ctx.createRadialGradient(anim.x, anim.y, 0, anim.x, anim.y, radius * 0.6);
+        flash.addColorStop(0, `rgba(255, 255, 200, ${alpha * 0.8})`);
+        flash.addColorStop(1, `rgba(241, 196, 15, 0)`);
+        ctx.beginPath();
+        ctx.arc(anim.x, anim.y, radius * 0.6, 0, Math.PI * 2);
+        ctx.fillStyle = flash;
+        ctx.fill();
+      });
+
+      // BAMPH — анимация появления комнат (расширяющаяся вспышка по периметру)
+      roomAnimations.forEach(anim => {
+        const elapsed = Date.now() - anim.startTime;
+        const progress = Math.min(elapsed / 600, 1);
+        if (progress >= 1) return;
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+        const alpha = (1 - progress) * 0.6;
+        // Вспышка в центре комнаты
+        const cx = anim.x + anim.w / 2;
+        const cy = anim.y + anim.h / 2;
+        const maxR = Math.max(anim.w, anim.h) * 0.7;
+        const r = easeOut * maxR;
+        const flash = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+        flash.addColorStop(0, `rgba(52, 152, 219, ${alpha * 0.5})`);
+        flash.addColorStop(0.5, `rgba(52, 152, 219, ${alpha * 0.2})`);
+        flash.addColorStop(1, 'rgba(52, 152, 219, 0)');
+        ctx.fillStyle = flash;
+        ctx.fillRect(anim.x, anim.y, anim.w, anim.h);
+        // Пульсирующая рамка
+        ctx.strokeStyle = `rgba(52, 152, 219, ${alpha})`;
+        ctx.lineWidth = 4 * (1 - progress);
+        ctx.strokeRect(anim.x, anim.y, anim.w, anim.h);
       });
 
       // Отрисовка текущего провода который рисуем
@@ -620,7 +761,76 @@ import Toast from '../components/Toast';
 
       ctx.restore();
 
-    }, [rooms, wires, lamps, currentWire, selectedRoomId, selectedLampId, scale, panOffset, showHeatmap, zoom, calculateLuxAtPoint]);
+    }, [rooms, wires, lamps, currentWire, selectedRoomId, selectedLampId, scale, panOffset, showHeatmap, zoom, calculateLuxAtPoint, pulsePhase, lampAnimations, roomAnimations]);
+
+    // Отрисовка мини-карты
+    useEffect(() => {
+      const mm = minimapCanvasRef.current;
+      if (!mm) return;
+      const ctx = mm.getContext('2d');
+      const W = mm.width, H = mm.height;
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = isDark ? '#1a202c' : '#f8f9fa';
+      ctx.fillRect(0, 0, W, H);
+
+      // Границы всех объектов
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      rooms.forEach(r => {
+        minX = Math.min(minX, r.x); minY = Math.min(minY, r.y);
+        maxX = Math.max(maxX, r.x + r.width * scale); maxY = Math.max(maxY, r.y + r.height * scale);
+      });
+      lamps.forEach(l => {
+        minX = Math.min(minX, l.x - 20); minY = Math.min(minY, l.y - 20);
+        maxX = Math.max(maxX, l.x + 20); maxY = Math.max(maxY, l.y + 20);
+      });
+      if (minX === Infinity) { minX = 0; minY = 0; maxX = 400; maxY = 300; }
+      const pad = 40; minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+      const s = Math.min(W / (maxX - minX), H / (maxY - minY));
+      const ox = (W - (maxX - minX) * s) / 2;
+      const oy = (H - (maxY - minY) * s) / 2;
+
+      ctx.save();
+      ctx.translate(ox, oy);
+      ctx.scale(s, s);
+      ctx.translate(-minX, -minY);
+
+      rooms.forEach(r => {
+        ctx.fillStyle = isDark ? 'rgba(52,152,219,0.3)' : 'rgba(52,152,219,0.2)';
+        ctx.strokeStyle = isDark ? '#94a3b8' : '#2c3e50';
+        ctx.lineWidth = 1 / s;
+        ctx.fillRect(r.x, r.y, r.width * scale, r.height * scale);
+        ctx.strokeRect(r.x, r.y, r.width * scale, r.height * scale);
+      });
+      wires.forEach(w => {
+        if (w.points.length < 2) return;
+        ctx.beginPath(); ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 1.5 / s;
+        ctx.moveTo(w.points[0].x, w.points[0].y);
+        for (let i = 1; i < w.points.length; i++) ctx.lineTo(w.points[i].x, w.points[i].y);
+        ctx.stroke();
+      });
+      lamps.forEach(l => {
+        ctx.beginPath(); ctx.arc(l.x, l.y, 4 / s, 0, Math.PI * 2);
+        ctx.fillStyle = '#f1c40f'; ctx.fill();
+      });
+
+      // Индикатор viewport
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const rect = canvas.getBoundingClientRect();
+        const dw = rect.width, dh = rect.height;
+        const vl = ((-dw / 2) / zoom + dw / 2 - panOffset.x / zoom);
+        const vt = ((-dh / 2) / zoom + dh / 2 - panOffset.y / zoom);
+        const vr = ((dw / 2) / zoom + dw / 2 - panOffset.x / zoom);
+        const vb = ((dh / 2) / zoom + dh / 2 - panOffset.y / zoom);
+        ctx.strokeStyle = 'rgba(52,152,219,0.8)'; ctx.lineWidth = 2 / s;
+        ctx.setLineDash([4 / s, 2 / s]);
+        ctx.strokeRect(vl, vt, vr - vl, vb - vt);
+        ctx.setLineDash([]);
+      }
+      ctx.restore();
+    }, [rooms, wires, lamps, zoom, panOffset, scale]);
 
     const getCoords = (e) => {
       const clientX = e.clientX ?? e.touches?.[0]?.clientX ?? e.changedTouches?.[0]?.clientX;
@@ -705,10 +915,12 @@ import Toast from '../components/Toast';
         setIsDrawing(true);
         setCurrentWire([coords]);
       } else if (activeTool === TOOLS.LAMP) {
+        const lampX = gridSnapEnabled ? Math.round(coords.x / (scale / 2)) * (scale / 2) : coords.x;
+        const lampY = gridSnapEnabled ? Math.round(coords.y / (scale / 2)) * (scale / 2) : coords.y;
         const newLamp = {
           id: Date.now(),
-          x: coords.x,
-          y: coords.y,
+          x: lampX,
+          y: lampY,
           power: 10,
           type: 'led',
           angle: 120,
@@ -717,6 +929,9 @@ import Toast from '../components/Toast';
         };
         setLamps(prev => [...prev, newLamp]);
         setHistory(prev => [...prev, { type: 'lamp', data: newLamp }]);
+        // BAMPH — анимация появления лампы
+        setLampAnimations(prev => [...prev, { x: lampX, y: lampY, startTime: Date.now(), id: newLamp.id }]);
+        setTimeout(() => setLampAnimations(prev => prev.filter(a => a.id !== newLamp.id)), 600);
       } else if (activeTool === TOOLS.ROOM) {
         const newRoom = {
           id: Date.now(),
@@ -734,6 +949,11 @@ import Toast from '../components/Toast';
           setSelectedRoomId(newRoom.id);
           setSelectedLampId(null);
           setHistory(prev => [...prev, { type: 'room', data: newRoom }]);
+          // BAMPH — анимация появления комнаты
+          const rw = newRoom.width * scale;
+          const rh = newRoom.height * scale;
+          setRoomAnimations(prev => [...prev, { x: newRoom.x, y: newRoom.y, w: rw, h: rh, startTime: Date.now(), id: newRoom.id }]);
+          setTimeout(() => setRoomAnimations(prev => prev.filter(a => a.id !== newRoom.id)), 700);
         }
       }
     };
@@ -769,9 +989,11 @@ import Toast from '../components/Toast';
             return room;
           }));
         } else if (selectedLampId) {
+          const newX = gridSnapEnabled ? Math.round((coords.x - dragOffset.x) / (scale / 2)) * (scale / 2) : coords.x - dragOffset.x;
+          const newY = gridSnapEnabled ? Math.round((coords.y - dragOffset.y) / (scale / 2)) * (scale / 2) : coords.y - dragOffset.y;
           setLamps(prev => prev.map(lamp =>
             lamp.id === selectedLampId
-              ? { ...lamp, x: coords.x - dragOffset.x, y: coords.y - dragOffset.y }
+              ? { ...lamp, x: newX, y: newY }
               : lamp
           ));
         }
@@ -816,10 +1038,21 @@ import Toast from '../components/Toast';
       setShowClearLampsModal(false);
     };
 
+    const clearRooms = () => {
+      // Оставляем одну комнату по умолчанию
+      setRooms([{ id: Date.now(), x: 100, y: 100, width: 5, height: 4, ceilingHeight: 2.5, name: 'Гостиная' }]);
+      setSelectedRoomId(Date.now());
+      setHistory([]);
+      setRedoStack([]);
+      setShowClearRoomsModal(false);
+    };
+
     const undoLastAction = () => {
       if (history.length === 0) return;
 
       const lastAction = history[history.length - 1];
+      // Сохраняем действие в стек redo
+      setRedoStack(prev => [...prev, lastAction]);
 
       if (lastAction.type === 'wire') {
         setWires(prev => prev.slice(0, -1));
@@ -828,28 +1061,82 @@ import Toast from '../components/Toast';
       } else if (lastAction.type === 'room') {
         setRooms(prev => prev.slice(0, -1));
       } else if (lastAction.type === 'lampDelete') {
-        // Восстанавливаем удаленную лампу
         setLamps(prev => [...prev, lastAction.data]);
       } else if (lastAction.type === 'roomDelete') {
-        // Восстанавливаем удаленную комнату
         setRooms(prev => [...prev, lastAction.data]);
       } else if (lastAction.type === 'lampMove') {
-        // Отменяем перемещение лампы
         setLamps(prev => prev.map(l => l.id === lastAction.id ? lastAction.before : l));
       } else if (lastAction.type === 'roomMove') {
-        // Отменяем перемещение комнаты
         setRooms(prev => prev.map(r => r.id === lastAction.id ? lastAction.before : r));
       } else if (lastAction.type === 'roomUpdate') {
-        // Отменяем изменение параметров комнаты
         setRooms(prev => prev.map(r => r.id === lastAction.id ? lastAction.before : r));
       } else if (lastAction.type === 'lampUpdate') {
-        // Отменяем изменение параметров лампы
         setLamps(prev => prev.map(l => l.id === lastAction.id ? lastAction.before : l));
       }
 
-      // Ограничиваем историю последними 5 действиями
       setHistory(prev => prev.slice(0, -1).slice(-5));
     };
+
+    // Повтор последнего отменённого действия (Redo)
+    const redoLastAction = () => {
+      if (redoStack.length === 0) return;
+
+      const action = redoStack[redoStack.length - 1];
+
+      if (action.type === 'wire') {
+        setWires(prev => [...prev, action.data]);
+      } else if (action.type === 'lamp') {
+        setLamps(prev => [...prev, action.data]);
+      } else if (action.type === 'room') {
+        setRooms(prev => [...prev, action.data]);
+        setSelectedRoomId(action.data.id);
+      } else if (action.type === 'lampDelete') {
+        setLamps(prev => prev.filter(l => l.id !== action.data.id));
+      } else if (action.type === 'roomDelete') {
+        setRooms(prev => prev.filter(r => r.id !== action.data.id));
+      } else if (action.type === 'lampMove') {
+        setLamps(prev => prev.map(l => l.id === action.id ? { ...l, ...action.after } : l));
+      } else if (action.type === 'roomMove') {
+        setRooms(prev => prev.map(r => r.id === action.id ? { ...r, ...action.after } : r));
+      } else if (action.type === 'roomUpdate') {
+        setRooms(prev => prev.map(r => r.id === action.id ? { ...r, ...action.after } : r));
+      } else if (action.type === 'lampUpdate') {
+        setLamps(prev => prev.map(l => l.id === action.id ? { ...l, ...action.after } : l));
+      }
+
+      setHistory(prev => [...prev.slice(-4), action]);
+      setRedoStack(prev => prev.slice(0, -1));
+    };
+
+    // Горячие клавиши
+    useEffect(() => {
+      const handleKeyDown = (e) => {
+        const tag = document.activeElement?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+        if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
+          e.preventDefault();
+          undoLastAction();
+        } else if ((e.ctrlKey && e.key === 'y') || (e.ctrlKey && e.shiftKey && (e.key === 'z' || e.key === 'Z'))) {
+          e.preventDefault();
+          redoLastAction();
+        } else if (e.key === 'Delete' || e.key === 'Backspace') {
+          e.preventDefault();
+          if (selectedLampId) deleteSelectedLamp();
+          else if (selectedRoomId && rooms.length > 1) deleteSelectedRoom();
+        } else if (e.key === 'Tab') {
+          e.preventDefault();
+          const tools = [TOOLS.CURSOR, TOOLS.WIRE, TOOLS.LAMP, TOOLS.ROOM];
+          const idx = tools.indexOf(activeTool);
+          setActiveTool(e.shiftKey ? tools[(idx - 1 + tools.length) % tools.length] : tools[(idx + 1) % tools.length]);
+        } else if (['1', '2', '3', '4'].includes(e.key)) {
+          const tools = [TOOLS.CURSOR, TOOLS.WIRE, TOOLS.LAMP, TOOLS.ROOM];
+          setActiveTool(tools[parseInt(e.key) - 1]);
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    });
 
     const deleteSelectedRoom = () => {
       if (rooms.length <= 1) return;
@@ -949,6 +1236,15 @@ import Toast from '../components/Toast';
             <div className={styles.legendItemSmall} style={{ background: 'rgba(255, 235, 59, 0.25)' }}>🟡 Нормально 150-300 Люкс</div>
             <div className={styles.legendItemSmall} style={{ background: 'rgba(244, 67, 54, 0.15)' }}>🔴 Слабо {'<'}150 Люкс</div>
           </div>
+
+          <button
+            className={`${styles.toolBtn} ${gridSnapEnabled ? styles.activeTool : ''}`}
+            onClick={() => setGridSnapEnabled(!gridSnapEnabled)}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            title="Привязка ламп к сетке (вкл/выкл)"
+          >
+            <img className={styles.calcImg} src='/images/ico/icoTermo.png' alt="Сетка"></img> Сетка: {gridSnapEnabled ? 'Вкл' : 'Выкл'}
+          </button>
 
           <button
             className={`${styles.toolBtn} ${showHeatmap ? styles.activeTool : ''}`}
@@ -1215,17 +1511,33 @@ import Toast from '../components/Toast';
                 <strong>{wires.length} шт</strong>
               </div>
 
-              <button
-                className={`${styles.undoBtn} ${history.length === 0 ? styles.disabledBtn : ''}`}
-                onClick={undoLastAction}
-                disabled={history.length === 0}
-              >
-                Отменить последнее действие
-              </button>
+              <div className={styles.btnGroup}>
+                <button
+                  className={`${styles.undoBtn} ${history.length === 0 ? styles.disabledBtn : ''}`}
+                  onClick={undoLastAction}
+                  disabled={history.length === 0}
+                  title="Ctrl+Z"
+                  style={{ flex: 1 }}
+                >
+                  ↩ Отмена
+                </button>
+                <button
+                  className={`${styles.undoBtn} ${redoStack.length === 0 ? styles.disabledBtn : ''}`}
+                  onClick={redoLastAction}
+                  disabled={redoStack.length === 0}
+                  title="Ctrl+Y"
+                  style={{ flex: 1 }}
+                >
+                  ↪ Вернуть
+                </button>
+              </div>
 
               <div className={styles.btnGroup}>
                 <button className={styles.clearBtn} onClick={() => setShowClearWiresModal(true)}>
                   Провода
+                </button>
+                <button className={styles.clearBtn} onClick={() => setShowClearRoomsModal(true)}>
+                  Комнаты
                 </button>
                 <button className={styles.clearBtn} onClick={() => setShowClearLampsModal(true)} style={{ background: '#f39c12' }}>
                   Лампы
@@ -1289,12 +1601,20 @@ import Toast from '../components/Toast';
                 return (
                   <div style={{ marginTop: '8px' }}>
                     <div className={styles.resultItem}>
-                      <span>Требуемый световой поток:</span>
-                      <strong>{calcResult.requiredLumens} Лм</strong>
+                      <span>Индекс помещения:</span>
+                      <strong>{calcResult.indexJ}</strong>
+                    </div>
+                    <div className={styles.resultItem}>
+                      <span>КПД использования:</span>
+                      <strong>{Math.round(calcResult.utilizationFactor * 100)}%</strong>
                     </div>
                     <div className={styles.resultItem}>
                       <span>Необходимо ламп (10Вт LED):</span>
-                      <strong>{calcResult.requiredLamps} шт</strong>
+                      <strong style={{ fontSize: '16px' }}>{calcResult.requiredLamps} шт</strong>
+                    </div>
+                    <div className={styles.resultItem}>
+                      <span>Фактическая освещённость:</span>
+                      <strong>{calcResult.actualLux} Люкс</strong>
                     </div>
                     <div className={styles.resultItem}>
                       <span>Текущее ламп в комнате:</span>
@@ -1510,8 +1830,54 @@ import Toast from '../components/Toast';
                 cursor: isPanning ? 'grabbing' : activeTool === TOOLS.CURSOR ? 'default' : 'crosshair'
               }}
             />
+            {/* Мини-карта — клик для навигации */}
+            <canvas
+              ref={minimapCanvasRef}
+              width={180}
+              height={120}
+              className={styles.minimap}
+              onClick={(e) => {
+                const mm = minimapCanvasRef.current;
+                if (!mm) return;
+                const rect = mm.getBoundingClientRect();
+                const clickX = e.clientX - rect.left;
+                const clickY = e.clientY - rect.top;
+
+                // Определяем границы всех объектов (как при отрисовке)
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                rooms.forEach(r => {
+                  minX = Math.min(minX, r.x); minY = Math.min(minY, r.y);
+                  maxX = Math.max(maxX, r.x + r.width * scale); maxY = Math.max(maxY, r.y + r.height * scale);
+                });
+                lamps.forEach(l => {
+                  minX = Math.min(minX, l.x - 20); minY = Math.min(minY, l.y - 20);
+                  maxX = Math.max(maxX, l.x + 20); maxY = Math.max(maxY, l.y + 20);
+                });
+                if (minX === Infinity) { minX = 0; minY = 0; maxX = 400; maxY = 300; }
+                const pad = 40; minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+                const Ws = mm.width, Hs = mm.height;
+                const s = Math.min(Ws / (maxX - minX), Hs / (maxY - minY));
+                const ox = (Ws - (maxX - minX) * s) / 2;
+                const oy = (Hs - (maxY - minY) * s) / 2;
+
+                // Обратное преобразование: клик → мировые координаты
+                const worldX = (clickX - ox) / s + minX;
+                const worldY = (clickY - oy) / s + minY;
+
+                // Центрируем viewport на tej точке
+                const canvas = canvasRef.current;
+                if (canvas) {
+                  const rect2 = canvas.getBoundingClientRect();
+                  const dw = rect2.width, dh = rect2.height;
+                  setPanOffset({
+                    x: -(worldX - dw / 2) * zoom,
+                    y: -(worldY - dh / 2) * zoom
+                  });
+                }
+              }}
+            />
             <div className={styles.scaleHint}>
-              Сетка: 1 метр | Инструмент: {activeTool} | Shift+drag для панорамирования
+              Сетка: 1м | [1-4] инструменты | [Ctrl+Z/Y] отмена/повтор | [Del] удалить | [Tab] смена | Shift+drag — панорама
             </div>
           </div>
         </div>
@@ -1524,6 +1890,16 @@ import Toast from '../components/Toast';
           title="Удаление всех проводов"
           message="Вы действительно хотите удалить все нарисованные провода? Это действие нельзя отменить."
           confirmText="Удалить провода"
+        />
+
+        {/* Модальное окно подтверждения удаления комнат */}
+        <ConfirmModal
+          isOpen={showClearRoomsModal}
+          onClose={() => setShowClearRoomsModal(false)}
+          onConfirm={clearRooms}
+          title="Удаление всех комнат"
+          message="Вы действительно хотите удалить все комнаты? Останется одна пустая комната по умолчанию."
+          confirmText="Удалить комнаты"
         />
 
         {/* Модальное окно подтверждения удаления ламп */}

@@ -183,7 +183,8 @@
 }
 
 .headerCell:first-child {
-  min-width: 120px;
+  flex: 0 0 140px;
+  min-width: 140px;
 }
 
 .productCard {
@@ -350,8 +351,8 @@
 }
 
 .rowLabel {
-  flex: 1;
-  min-width: 120px;
+  flex: 0 0 140px;
+  min-width: 140px;
   padding: 0 4px;
   font-weight: 600;
   font-size: 0.9rem;
