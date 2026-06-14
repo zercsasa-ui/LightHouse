@@ -122,7 +122,7 @@ const Home = () => {
               ref={aboutImage.ref}
               className={`${styles.aboutImage} ${styles.reveal} ${styles.revealLeft} ${aboutImage.isVisible ? styles.revealVisible : ''}`}
             >
-              <img src="/images/gallery/вход.jpg" alt="О компании" />
+              <img src="/images/gallery/вход.jpg" alt="О компании" loading="lazy" />
             </div>
             <div className={styles.aboutContent}>
               <h2
@@ -160,17 +160,17 @@ const Home = () => {
             className={`${styles.galleryPreview} ${styles.reveal} ${styles.revealUp} ${galleryPreviewReveal.isVisible ? styles.revealVisible : ''} ${galleryOpen ? styles.galleryPreviewOpen : ''}`}
           >
             <div className={styles.galleryMain} onClick={() => galleryOpen ? (() => { setCurrentImage(0); setLightboxOpen(true); })() : setGalleryOpen(true)}>
-              <img src={previewImages[0]} alt="Наш склад" />
+              <img src={previewImages[0]} alt="Наш склад" loading="lazy" />
               <div className={styles.galleryOverlay}>
                 <span className={styles.galleryBtn}>Открыть все фото</span>
               </div>
             </div>
             <div className={styles.gallerySide}>
               <div className={styles.gallerySmall} onClick={() => galleryOpen ? (() => { setCurrentImage(1); setLightboxOpen(true); })() : setGalleryOpen(true)}>
-                <img src={previewImages[1]} alt="Наш склад" />
+                <img src={previewImages[1]} alt="Наш склад" loading="lazy" />
               </div>
               <div className={styles.gallerySmall} onClick={() => galleryOpen ? (() => { setCurrentImage(2); setLightboxOpen(true); })() : setGalleryOpen(true)}>
-                <img src={previewImages[2]} alt="Наш склад" />
+                <img src={previewImages[2]} alt="Наш склад" loading="lazy" />
                 <div className={styles.galleryCount}>
                   +{galleryImages.length} фото
                 </div>
@@ -186,7 +186,7 @@ const Home = () => {
                 style={{ animationDelay: `${index * 0.08}s` }}
                 onClick={() => { setCurrentImage(index + 3); setLightboxOpen(true); }}
               >
-                <img src={image} alt={`Ассортимент ${index + 1}`} />
+                <img src={image} alt={`Ассортимент ${index + 1}`} loading="lazy" />
               </div>
             ))}
           </div>

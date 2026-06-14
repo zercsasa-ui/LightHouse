@@ -2,6 +2,7 @@ import { memo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import { useComparison } from '../context/ComparisonContext';
+import useLazyBackground from '../hooks/useLazyBackground';
 import styles from '../pages/Catalog.module.css';
 
 // Мемоизированная карточка товар товара - не перерисовывается при фильтрации
@@ -14,6 +15,7 @@ const ProductCard = memo(({ product }) => {
   const timerRef = useRef(null);
 
   const isInComparison = comparisonItems.some(item => item.id === product.id);
+  const { ref: lazyBgRef, bgUrl } = useLazyBackground(product.image_url || 'https://via.placeholder.com/300x200');
 
   // 预加载
   const doPreload = useCallback(async () => {
@@ -76,8 +78,9 @@ const ProductCard = memo(({ product }) => {
     >
       <div className={styles.imageContainer}>
         <div
+          ref={lazyBgRef}
           className={styles.productImageBg}
-          style={{ backgroundImage: `url(${product.image_url || 'https://via.placeholder.com/300x200'})` }}
+          style={bgUrl ? { backgroundImage: `url(${bgUrl})` } : {}}
         />
         <div className={styles.productImageOverlay} />
         <img

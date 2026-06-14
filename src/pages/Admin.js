@@ -220,16 +220,18 @@ const Admin = () => {
   }, [globalViewMode, userProfile]);
 
   let processedRequests = requests.filter(req => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
-    if (
-      !req.profiles?.name?.toLowerCase().includes(query) &&
-      !req.profiles?.email?.toLowerCase().includes(query) &&
-      !req.phone?.toLowerCase().includes(query) &&
-      !req.message?.toLowerCase().includes(query)
-    ) return false;
+    // Фильтр по поиску
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      if (
+        !req.profiles?.name?.toLowerCase().includes(query) &&
+        !req.profiles?.email?.toLowerCase().includes(query) &&
+        !req.phone?.toLowerCase().includes(query) &&
+        !req.message?.toLowerCase().includes(query)
+      ) return false;
+    }
 
-    // Сортировка по статусу
+    // Фильтр по статусу
     if (sortStatus && req.status !== sortStatus) {
       return false;
     }

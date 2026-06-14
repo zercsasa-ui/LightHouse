@@ -552,3 +552,10 @@ html[data-theme="dark"] .activeTool img {
   box-shadow: 0 2px 12px rgba(52, 152, 219, 0.3);
   border-color: var(--accent-color);
 }
+
+/* Скрытие мини-карты на мобильных устройствах */
+@media (max-width: 768px) {
+  .minimap {
+    display: none;
+  }
+}

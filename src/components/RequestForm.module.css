@@ -273,6 +273,12 @@ html[data-theme="dark"] .templateBtnActive:hover {
   border: 2px solid #141414;
 }
 
+/* Dark theme for modal */
+html[data-theme="dark"] .modalContent {
+  background: #1f2937;
+  border-color: #374151;
+}
+
 .successIcon {
   width: 72px;
   height: 72px;
@@ -293,10 +299,18 @@ html[data-theme="dark"] .templateBtnActive:hover {
   color: #141414;
 }
 
+html[data-theme="dark"] .modalTitle {
+  color: #e5e7eb;
+}
+
 .modalMessage {
   margin: 0 0 24px;
   color: #525252;
   line-height: 1.5;
+}
+
+html[data-theme="dark"] .modalMessage {
+  color: #9ca3af;
 }
 
 .modalCloseBtn {
@@ -311,9 +325,18 @@ html[data-theme="dark"] .templateBtnActive:hover {
   transition: all 0.2s ease;
 }
 
+html[data-theme="dark"] .modalCloseBtn {
+  background: #374151;
+  color: #e5e7eb;
+}
+
 .modalCloseBtn:hover {
   background: #2d2d2d;
   transform: translateY(-1px);
+}
+
+html[data-theme="dark"] .modalCloseBtn:hover {
+  background: #4b5563;
 }
 
 @keyframes fadeIn {

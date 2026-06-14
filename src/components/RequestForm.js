@@ -6,25 +6,28 @@ import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 import styles from './RequestForm.module.css';
 
-const PRODUCT_TEMPLATE = `Интересует товар:
-Количество:
-Дополнительная информация:`;
-
-const SERVICE_TEMPLATE = `Требуется услуга:
-Описание работ:
-Адрес объекта:
-Удобное время для визита:`;
-
 const RequestForm = ({ initialMessage = '', onSuccess }) => {
   const [phone, setPhone] = useState('');
   const [message, setMessage] = useState(initialMessage);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
 
-  // Обновляем поле сообщения когда меняется initialMessage из пропсов
+  // Отдельные поля для товара
+  const [productName, setProductName] = useState(initialMessage);
+  const [productQuantity, setProductQuantity] = useState('');
+  const [productExtra, setProductExtra] = useState('');
+
+  // Отдельные поля для услуги
+  const [serviceType, setServiceType] = useState('');
+  const [workDescription, setWorkDescription] = useState('');
+  const [workAddress, setWorkAddress] = useState('');
+  const [visitTime, setVisitTime] = useState('');
+
+  // Обновляем поле товара когда меняется initialMessage из пропсов
   useEffect(() => {
     if (initialMessage) {
       setSelectedTemplate('product');
-      setMessage(`Интересует товар: ${initialMessage}\n\nКоличество:\nДополнительная информация:`);
+      setProductName(initialMessage);
+      setMessage(initialMessage);
     } else {
       setMessage(initialMessage);
     }
@@ -47,27 +50,65 @@ const RequestForm = ({ initialMessage = '', onSuccess }) => {
   const handleTemplateClick = (template) => {
     if (selectedTemplate === template) {
       setSelectedTemplate(null);
+      setProductName('');
+      setProductQuantity('');
+      setProductExtra('');
+      setServiceType('');
+      setWorkDescription('');
+      setWorkAddress('');
+      setVisitTime('');
       setMessage('');
     } else {
       setSelectedTemplate(template);
-      setMessage(template === 'product' ? PRODUCT_TEMPLATE : SERVICE_TEMPLATE);
+      if (template === 'product') {
+        setProductName(initialMessage || '');
+        setProductQuantity('');
+        setProductExtra('');
+        setMessage(initialMessage || '');
+      } else {
+        setServiceType('');
+        setWorkDescription('');
+        setWorkAddress('');
+        setVisitTime('');
+        setMessage('');
+      }
     }
+  };
+
+  // Собираем сообщение из полей перед отправкой
+  const buildMessage = () => {
+    if (selectedTemplate === 'product') {
+      let msg = '';
+      if (productName) msg += `Интересует товар: ${productName}`;
+      if (productQuantity) msg += `\nКоличество: ${productQuantity}`;
+      if (productExtra) msg += `\n\nДополнительная информация: ${productExtra}`;
+      return msg || 'Товар не указан';
+    } else if (selectedTemplate === 'service') {
+      let msg = '';
+      if (serviceType) msg += `Требуется услуга: ${serviceType}`;
+      if (workDescription) msg += `\nОписание работ: ${workDescription}`;
+      if (workAddress) msg += `\nАдрес объекта: ${workAddress}`;
+      if (visitTime) msg += `\nУдобное время для визита: ${visitTime}`;
+      return msg || 'Услуга не указана';
+    }
+    return message || 'Заявка без описания';
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!user) {
       navigate('/auth');
       return;
     }
-    
+
     if (!validatePhone(phone)) {
       setPhoneError('Введите корректный номер телефона');
       return;
     }
 
-    if (!phone || !message) return;
+    const finalMessage = buildMessage();
+    if (!phone || !finalMessage) return;
 
     setLoading(true);
     try {
@@ -76,17 +117,24 @@ const RequestForm = ({ initialMessage = '', onSuccess }) => {
         .insert({
           user_id: user.id,
           phone,
-          message,
+          message: finalMessage,
           status: 'pending'
         });
-      
+
       if (error) throw error;
-      
+
       setPhone('');
       setMessage('');
+      setProductName('');
+      setProductQuantity('');
+      setProductExtra('');
+      setServiceType('');
+      setWorkDescription('');
+      setWorkAddress('');
+      setVisitTime('');
       setSelectedTemplate(null);
       setSuccessModal(true);
-      
+
       if (onSuccess) {
         onSuccess();
       }
@@ -146,31 +194,106 @@ const RequestForm = ({ initialMessage = '', onSuccess }) => {
             />
             {phoneError && <span className={styles.errorText}>{phoneError}</span>}
           </div>
-          
-          <div className={styles.formGroup}>
-            <div className={styles.textareaHeader}>
-              <label htmlFor="message">Сообщение *</label>
-              <span className={styles.charCount}>{message.length}/{maxMessageLength}</span>
+
+          {selectedTemplate === 'product' && (
+            <>
+              <div className={styles.formGroup}>
+                <label>Название товара</label>
+                <input
+                  type="text"
+                  value={productName}
+                  onChange={(e) => setProductName(e.target.value)}
+                  placeholder="Введите название товара"
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label>Количество</label>
+                <input
+                  type="text"
+                  value={productQuantity}
+                  onChange={(e) => setProductQuantity(e.target.value)}
+                  placeholder="Например: 5 шт"
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label>Дополнительная информация (необязательно)</label>
+                <textarea
+                  value={productExtra}
+                  onChange={(e) => setProductExtra(e.target.value)}
+                  placeholder="Цвет, мощность, бренд, когда сможете забрать..."
+                  rows={2}
+                />
+              </div>
+            </> 
+          )}
+
+          {selectedTemplate === 'service' && (
+            <>
+              <div className={styles.formGroup}>
+                <label>Тип услуги</label>
+                <input
+                  type="text"
+                  value={serviceType}
+                  onChange={(e) => setServiceType(e.target.value)}
+                  placeholder="Например: электромонтаж, замена проводки"
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label>Описание работ</label>
+                <textarea
+                  value={workDescription}
+                  onChange={(e) => setWorkDescription(e.target.value)}
+                  placeholder="Кратко опишите, что нужно сделать"
+                  rows={2}
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label>Адрес объекта</label>
+                <input
+                  type="text"
+                  value={workAddress}
+                  onChange={(e) => setWorkAddress(e.target.value)}
+                  placeholder="г. Москва, ул. Ленина, д. 10"
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label>Удобное время для визита</label>
+                <input
+                  type="text"
+                  value={visitTime}
+                  onChange={(e) => setVisitTime(e.target.value)}
+                  placeholder="Например: будни после 18:00"
+                />
+              </div>
+            </>
+          )}
+
+          {!selectedTemplate && (
+            <div className={styles.formGroup}>
+              <div className={styles.textareaHeader}>
+                <label htmlFor="message">Сообщение *</label>
+                <span className={styles.charCount}>{message.length}/{maxMessageLength}</span>
+              </div>
+              <textarea
+                id="message"
+                value={message}
+                onChange={(e) => {
+                  if (e.target.value.length <= maxMessageLength) {
+                    setMessage(e.target.value);
+                  }
+                }}
+                placeholder="Опишите, что вам нужно..."
+                rows={4}
+                maxLength={maxMessageLength}
+                required
+              />
             </div>
-            <textarea
-              id="message"
-              value={message}
-              onChange={(e) => {
-                if (e.target.value.length <= maxMessageLength) {
-                  setMessage(e.target.value);
-                }
-              }}
-              placeholder="Опишите, что вам нужно..."
-              rows={4}
-              maxLength={maxMessageLength}
-              required
-            />
-          </div>
-          
-          <button 
-            type="submit" 
+          )}
+
+          <button
+            type="submit"
             className={styles.submitBtn}
-            disabled={loading || !phone || !message}
+            disabled={loading || !phone}
           >
             {loading ? 'Отправка...' : 'Отправить заявку'}
           </button>
@@ -186,7 +309,7 @@ const RequestForm = ({ initialMessage = '', onSuccess }) => {
             <p className={styles.modalMessage}>
               Мы получили вашу заявку. В ближайшее время с вами свяжется наш менеджер для уточнения деталей.
             </p>
-            <button 
+            <button
               className={styles.modalCloseBtn}
               onClick={() => setSuccessModal(false)}
             >
